@@ -16,19 +16,22 @@ import { SettingsView } from '@/components/views/settings'
 import {
   LayoutDashboard, Boxes, Wrench, ClipboardCheck, ShieldCheck, Package,
   Truck, FileDown, Settings as SettingsIcon, Menu, RefreshCw, Building2,
+  MapPin,
 } from 'lucide-react'
 
 const NAV = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'units', label: 'Units', icon: Boxes },
-  { key: 'maintenance', label: 'Maintenance', icon: Wrench },
-  { key: 'inspections', label: 'Inspections', icon: ClipboardCheck },
-  { key: 'qcp', label: 'QCP', icon: ShieldCheck },
-  { key: 'stock', label: 'Stock', icon: Package },
-  { key: 'fleet', label: 'Fleet', icon: Truck },
-  { key: 'reports', label: 'Reports', icon: FileDown },
-  { key: 'settings', label: 'Settings', icon: SettingsIcon },
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Operations', desc: 'Today\u2019s overview of units, upkeep and reminders' },
+  { key: 'units', label: 'Units', icon: Boxes, group: 'Operations', desc: 'Register, contents, build team and unit history' },
+  { key: 'maintenance', label: 'Maintenance', icon: Wrench, group: 'Operations', desc: 'Aircon, paint and cleaning schedules by interval' },
+  { key: 'inspections', label: 'Inspections', icon: ClipboardCheck, group: 'Operations', desc: 'Signed outgoing & return checks on tablet' },
+  { key: 'qcp', label: 'QCP', icon: ShieldCheck, group: 'Operations', desc: 'Quality control plan with hold points' },
+  { key: 'stock', label: 'Stock', icon: Package, group: 'Stock & fleet', desc: 'Inventory, reorder points and supplier lead times' },
+  { key: 'fleet', label: 'Fleet', icon: Truck, group: 'Stock & fleet', desc: 'Vehicles, services, repairs and inspections' },
+  { key: 'reports', label: 'Reports', icon: FileDown, group: 'Office', desc: 'Downloadable reports and inspection sheets' },
+  { key: 'settings', label: 'Settings', icon: SettingsIcon, group: 'Office', desc: 'Company details, email reminders and install guide' },
 ]
+
+const GROUPS = ['Operations', 'Stock & fleet', 'Office'] as const
 
 export default function Home() {
   const [view, setView] = useState('dashboard')
@@ -53,77 +56,127 @@ export default function Home() {
   const go = (v: string) => { setView(v); setNavOpen(false) }
   const refresh = () => setRefreshKey((k) => k + 1)
 
-  const navList = (onClick: (k: string) => void, active: string, variant: 'desktop' | 'mobile') => (
-    <nav className={variant === 'desktop' ? 'flex flex-col gap-1 px-3' : 'flex flex-col gap-1 p-2'}>
-      {NAV.map((n) => {
-        const Icon = n.icon
-        const isActive = active === n.key
-        return (
-          <button key={n.key} onClick={() => onClick(n.key)} aria-current={isActive ? 'page' : undefined}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-200 hover:bg-slate-800'}`}>
-            <Icon className="h-4.5 w-4.5 h-[18px] w-[18px] shrink-0" />
-            {n.label}
-          </button>
-        )
-      })}
+  const renderBrand = () => (
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-950/50 ring-1 ring-inset ring-white/25">
+        <Building2 className="h-5 w-5 text-white" />
+      </div>
+      <div className="min-w-0">
+        <p className="font-display text-sm font-bold text-white truncate">{company}</p>
+        <p className="text-[11px] text-slate-400 truncate">{slogan}</p>
+      </div>
+    </div>
+  )
+
+  const navList = (onClick: (k: string) => void, active: string) => (
+    <nav className="flex flex-col px-3 pb-2">
+      {GROUPS.map((group) => (
+        <div key={group}>
+          <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400/50">
+            {group}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {NAV.filter((n) => n.group === group).map((n) => {
+              const Icon = n.icon
+              const isActive = active === n.key
+              return (
+                <button key={n.key} onClick={() => onClick(n.key)} aria-current={isActive ? 'page' : undefined}
+                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-left transition-all duration-150 ${
+                    isActive
+                      ? 'bg-white/[0.09] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                      : 'font-medium text-slate-300/60 hover:bg-white/[0.05] hover:text-slate-100'
+                  }`}>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+                  )}
+                  <Icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-400/70 group-hover:text-slate-200'}`} />
+                  {n.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   )
 
+  const sidebarFooter = (
+    <div className="px-5 pb-1">
+      <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.06] px-3 py-2.5">
+        <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-slate-300 leading-tight">Windhoek · Namibia</p>
+          <p className="text-[10px] text-slate-500 leading-tight">Works offline · installable PWA</p>
+        </div>
+      </div>
+    </div>
+  )
+
+  const current = NAV.find((n) => n.key === view)
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100">
+    <div className="min-h-screen flex flex-col bg-background">
       <div className="flex flex-1">
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-56 shrink-0 flex-col bg-slate-900 py-4 sticky top-0 h-screen">
-          <div className="px-5 mb-4">
-            <div className="flex items-center gap-2 text-white">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{company}</p>
-                <p className="text-[11px] text-slate-400 truncate">{slogan}</p>
-              </div>
-            </div>
+        <aside className="hidden md:flex w-60 shrink-0 flex-col sticky top-0 h-screen bg-gradient-to-b from-[#0c231d] via-[#0a1d18] to-[#071410] overflow-hidden">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(16,185,129,0.16),transparent_70%)]" />
+          <div className="relative px-5 pt-5 pb-3">
+            {renderBrand()}
           </div>
-          {navList(go, view, 'desktop')}
-          <div className="mt-auto px-5 text-[11px] text-slate-500">Windhoek · Namibia</div>
+          <div className="relative flex-1 overflow-y-auto">
+            {navList(go, view)}
+          </div>
+          <div className="relative pt-2">{sidebarFooter}</div>
         </aside>
 
         {/* Main column */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col bg-dotgrid">
           {/* Mobile header */}
-          <header className="md:hidden bg-slate-900 px-3 py-2.5 flex items-center gap-2 sticky top-0 z-40">
+          <header className="md:hidden bg-gradient-to-r from-[#0c231d] to-[#0a1d18] px-3 py-2.5 flex items-center gap-2 sticky top-0 z-40">
             <Sheet open={navOpen} onOpenChange={setNavOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-slate-800" aria-label="Open menu">
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" aria-label="Open menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="bg-slate-900 border-slate-800 p-0 w-64">
-                <SheetHeader className="px-5 pt-5 pb-2">
-                  <SheetTitle className="text-white text-left text-sm">{company}</SheetTitle>
+              <SheetContent side="left" className="bg-[#0a1d18] border-white/10 p-0 w-72">
+                <SheetHeader className="px-5 pt-5 pb-1">
+                  <SheetTitle className="text-left text-white">
+                    {renderBrand()}
+                  </SheetTitle>
                 </SheetHeader>
-                {navList(go, view, 'mobile')}
+                <div className="h-[calc(100%-4.5rem)] overflow-y-auto">
+                  {navList(go, view)}
+                  {sidebarFooter}
+                </div>
               </SheetContent>
             </Sheet>
             <div className="min-w-0 flex-1">
-              <p className="text-white text-sm font-semibold truncate">{company}</p>
-              <p className="text-[11px] text-slate-400 truncate">{slogan}</p>
+              <p className="font-display text-sm font-bold text-white truncate">{company}</p>
+              <p className="text-[11px] text-slate-400 truncate">{current?.label}</p>
             </div>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-slate-800" onClick={refresh} aria-label="Refresh data">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={refresh} aria-label="Refresh data">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </header>
 
           {/* Desktop top bar */}
-          <div className="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b sticky top-0 z-40">
-            <p className="text-sm text-muted-foreground">
-              {NAV.find((n) => n.key === view)?.label}
-            </p>
-            <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
+          <div className="hidden md:flex items-center justify-between px-8 py-4 bg-card/70 backdrop-blur-sm border-b sticky top-0 z-40">
+            <div>
+              <p className="font-display text-[15px] font-bold leading-tight">{current?.label}</p>
+              <p className="text-xs text-muted-foreground">{current?.desc}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground rounded-full border px-3 py-1.5 bg-card/60">
+                <MapPin className="h-3 w-3 text-emerald-600" /> Windhoek, Namibia
+              </span>
+              <Button variant="outline" size="sm" className="rounded-lg bg-card" onClick={refresh}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+              </Button>
+            </div>
           </div>
 
-          <main className="flex-1 px-3 sm:px-6 py-4 sm:py-6 max-w-7xl w-full mx-auto">
+          <main className="flex-1 px-3 sm:px-8 py-4 sm:py-7 max-w-7xl w-full mx-auto">
             {view === 'dashboard' && <DashboardView onNavigate={go} />}
             {view === 'units' && <UnitsView refreshKey={refreshKey} onNavigate={go} />}
             {view === 'maintenance' && <MaintenanceView refreshKey={refreshKey} />}
@@ -135,7 +188,7 @@ export default function Home() {
             {view === 'settings' && <SettingsView refreshKey={refreshKey} />}
           </main>
 
-          <footer className="mt-auto border-t bg-white px-4 py-3 text-center text-xs text-muted-foreground">
+          <footer className="mt-auto border-t bg-card/70 backdrop-blur-sm px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-xs text-muted-foreground">
             {company} · preventative maintenance, inspections & fleet · built for Namibian conditions
           </footer>
         </div>

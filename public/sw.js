@@ -7,7 +7,14 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim())
+  event.waitUntil(
+    (async () => {
+      // remove caches left over from previous app versions
+      const names = await caches.keys()
+      await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)))
+      await clients.claim()
+    })(),
+  )
 })
 
 self.addEventListener('fetch', (event) => {

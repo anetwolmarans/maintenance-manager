@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { apiGet, fmtDate, fmtDateTime } from '@/lib/api'
 import type { DashboardData } from '@/lib/types'
-import { StatCard, DueBadge, ViewTitle } from '@/components/views/shared'
+import { StatCard, DueBadge, ViewTitle, CardIcon } from '@/components/views/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,15 +64,15 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Boxes} label="Units on register" value={data.unitsTotal} hint={`${inStock} in stock · ${unitsAtClients} at clients · ${inMaint} in maintenance`} />
-        <StatCard icon={Wrench} label="Maintenance schedules" value={data.schedulesTotal} hint={`${data.overdue.length} overdue · ${data.dueSoon.length} due in 30 days`} />
-        <StatCard icon={Package} label="Stock items low" value={data.lowStock.length} hint="at or below reorder point" />
-        <StatCard icon={Truck} label="Fleet services due" value={data.fleetDue.length} hint="by km or months interval" />
+        <StatCard icon={Boxes} tone="emerald" label="Units on register" value={data.unitsTotal} hint={`${inStock} in stock · ${unitsAtClients} at clients · ${inMaint} in maintenance`} />
+        <StatCard icon={Wrench} tone="amber" label="Maintenance plans" value={data.schedulesTotal} hint={`${data.overdue.length} overdue · ${data.dueSoon.length} due in 30 days`} />
+        <StatCard icon={Package} tone="orange" label="Stock items low" value={data.lowStock.length} hint="at or below reorder point" />
+        <StatCard icon={Truck} tone="teal" label="Fleet services due" value={data.fleetDue.length} hint="by km or months interval" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 mt-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-600" /> Overdue maintenance</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[15px] flex items-center gap-2.5"><CardIcon icon={AlertTriangle} tone="red" /> Overdue maintenance</CardTitle></CardHeader>
           <CardContent>
             {data.overdue.length === 0 ? <p className="text-sm text-muted-foreground">Nothing overdue – good.</p> : (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
@@ -88,7 +88,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wrench className="h-4 w-4 text-amber-600" /> Due in the next 30 days</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[15px] flex items-center gap-2.5"><CardIcon icon={Wrench} tone="amber" /> Due in the next 30 days</CardTitle></CardHeader>
           <CardContent>
             {data.dueSoon.length === 0 ? <p className="text-sm text-muted-foreground">Nothing due soon.</p> : (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
@@ -104,14 +104,14 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4 text-orange-600" /> Stock to reorder</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[15px] flex items-center gap-2.5"><CardIcon icon={Package} tone="orange" /> Stock to reorder</CardTitle></CardHeader>
           <CardContent>
             {data.lowStock.length === 0 ? <p className="text-sm text-muted-foreground">All stock above reorder points.</p> : (
               <ul className="space-y-2 max-h-56 overflow-y-auto">
                 {data.lowStock.map((s) => (
                   <li key={s.id} className="flex items-start justify-between gap-2 text-sm border-b pb-2 last:border-0">
                     <div><p className="font-medium">{s.name}</p><p className="text-xs text-muted-foreground">{s.supplier || 'no supplier'}{s.leadTimeDays != null ? ` · lead time ${s.leadTimeDays} days` : ''}</p></div>
-                    <Badge className="bg-red-100 text-red-800">{s.qtyOnHand} / {s.reorderPoint} {s.unit}</Badge>
+                    <Badge className="rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20"><span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />{s.qtyOnHand} / {s.reorderPoint} {s.unit}</Badge>
                   </li>
                 ))}
               </ul>
@@ -120,7 +120,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-emerald-700" /> Recent inspections & sign-outs</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[15px] flex items-center gap-2.5"><CardIcon icon={ClipboardCheck} tone="emerald" /> Recent inspections & sign-outs</CardTitle></CardHeader>
           <CardContent>
             {data.recentInspections.length === 0 ? <p className="text-sm text-muted-foreground">No inspections yet.</p> : (
               <ul className="space-y-2 max-h-56 overflow-y-auto">
@@ -136,7 +136,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Mail className="h-4 w-4" /> Last reminder emails</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[15px] flex items-center gap-2.5"><CardIcon icon={Mail} tone="slate" /> Last reminder emails</CardTitle></CardHeader>
           <CardContent>
             {data.recentEmails.length === 0 ? <p className="text-sm text-muted-foreground">No reminder emails sent yet.</p> : (
               <ul className="space-y-2">
