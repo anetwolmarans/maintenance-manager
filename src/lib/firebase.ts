@@ -3,14 +3,11 @@
 /**
  * Firebase Firestore sync bridge.
  *
- * Config resolution order:
- *   1. localStorage key `mm_fb_config` (JSON pasted in Settings → Sync) –
- *      lets the GitHub Pages build enable sync without rebuilding.
- *   2. NEXT_PUBLIC_FIREBASE_* environment variables set at build time
- *      (GitHub Actions / APK build secrets).
- *
- * When no config is found the app runs in local-only mode (IndexedDB),
- * which works fully offline with zero setup.
+ * The web-app config is hardcoded below on purpose: every build (GitHub
+ * Pages and APK) ships with sync enabled and no device needs any setup.
+ * A Firebase web API key is a public identifier by design – it selects the
+ * project but does not grant access; data is protected by the Firestore
+ * security rules (`request.auth != null` via anonymous sign-in).
  */
 
 import type { Collection, Doc } from '@/lib/store'
@@ -25,48 +22,25 @@ export type FirebaseConfig = {
   appId: string
 }
 
-const LS_KEY = 'mm_fb_config'
-
-function readEnvConfig(): FirebaseConfig | null {
-  const cfg = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  }
-  if (!cfg.apiKey || !cfg.projectId || !cfg.appId) return null
-  return cfg as FirebaseConfig
+const FIREBASE_CONFIG: FirebaseConfig = {
+  apiKey: 'AIzaSyB-sI9oyzvJZdqGPLaOryhK9qX5MrF18_4',
+  authDomain: 'maintenance-manager-463fc.firebaseapp.com',
+  projectId: 'maintenance-manager-463fc',
+  storageBucket: 'maintenance-manager-463fc.firebasestorage.app',
+  messagingSenderId: '691671070047',
+  appId: '1:691671070047:web:b67031b54326798d2c32ea',
 }
 
-export function readStoredConfig(): FirebaseConfig | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(LS_KEY)
-    if (!raw) return null
-    const cfg = JSON.parse(raw)
-    if (cfg?.apiKey && cfg?.projectId && cfg?.appId) return cfg as FirebaseConfig
-  } catch { /* ignore malformed config */ }
-  return null
-}
-
-export function getConfig(): FirebaseConfig | null {
-  return readStoredConfig() ?? readEnvConfig()
-}
-
-export function saveConfig(cfg: FirebaseConfig | null) {
-  if (typeof window === 'undefined') return
-  if (cfg) window.localStorage.setItem(LS_KEY, JSON.stringify(cfg))
-  else window.localStorage.removeItem(LS_KEY)
+export function getConfig(): FirebaseConfig {
+  return FIREBASE_CONFIG
 }
 
 export function syncMode(): 'local' | 'firebase' {
-  return getConfig() ? 'firebase' : 'local'
+  return 'firebase'
 }
 
 export function projectId(): string {
-  return getConfig()?.projectId ?? ''
+  return FIREBASE_CONFIG.projectId
 }
 
 type Handler = (col: Collection, docs: Doc[]) => void
@@ -102,8 +76,8 @@ export function fsReplace(col: Collection, docs: Doc[]) {
 /** Attach realtime listeners; returns false when running without Firebase. */
 export function initSync(onData: Handler): boolean {
   if (bundle) return true
+  if (typeof window === 'undefined') return false
   const cfg = getConfig()
-  if (!cfg || typeof window === 'undefined') return false
 
   void (async () => {
     const { initializeApp, getApps } = await import('firebase/app')

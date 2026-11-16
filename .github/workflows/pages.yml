@@ -28,15 +28,7 @@ jobs:
           # repo name sub-path so the app works at
           # https://anetwolmarans.github.io/maintenance-manager/
           NEXT_PUBLIC_BASE_PATH: /maintenance-manager
-          # Firebase web-app config ships with the build (web API keys are
-          # public identifiers by design – data is protected by the Firestore
-          # rules + anonymous auth). Repository secrets override these defaults.
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || 'AIzaSyB-sI9oyzvJZdqGPLaOryhK9qX5MrF18_4' }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN || 'maintenance-manager-463fc.firebaseapp.com' }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || 'maintenance-manager-463fc' }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET || 'maintenance-manager-463fc.firebasestorage.app' }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID || '691671070047' }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID || '1:691671070047:web:b67031b54326798d2c32ea' }}
+          # (the Firebase config lives in src/lib/firebase.ts)
 
       - uses: actions/upload-pages-artifact@v3
         with:

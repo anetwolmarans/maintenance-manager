@@ -12,14 +12,13 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, MailCheck, Smartphone, Download, Share2, Settings2, Save, Send, RefreshCw, Database, Upload, Cloud, CloudOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, MailCheck, Smartphone, Download, Share2, Settings2, Save, Send, RefreshCw, Database, Upload, Cloud } from 'lucide-react'
 import { exportAll, importAll } from '@/lib/store'
 import { loadSampleData } from '@/lib/sample-data'
-import { syncMode, projectId, readStoredConfig, saveConfig, type FirebaseConfig } from '@/lib/firebase'
+import { projectId } from '@/lib/firebase'
 
 const emptyAir = { id: '', brand: '', model: '', type: 'Split inverter', btu: 12000, serviceIntervalMonths: 6, filterCleanMonths: 1, supplier: '', source: '', notes: '' }
 
@@ -32,7 +31,6 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
   const [testing, setTesting] = useState(false)
   const [tab, setTab] = useState('data')
   const [loading, setLoading] = useState(true)
-  const [fbConfigText, setFbConfigText] = useState('')
   const [dataBusy, setDataBusy] = useState(false)
   const [seedOpen, setSeedOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -46,8 +44,6 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
         apiGet<AirconModel[]>('/api/aircons'),
       ])
       setSettings(s.settings); setEmailLogs(s.emailLogs); setAircons(a)
-      const stored = readStoredConfig()
-      setFbConfigText(stored ? JSON.stringify(stored, null, 2) : '')
     } catch (e) { toast.error(e.message) } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [refreshKey])
@@ -68,8 +64,6 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
       load()
     } catch (e) { toast.error(e.message) } finally { setTesting(false) }
   }
-
-  const syncActive = syncMode() === 'firebase'
 
   const runSeed = async () => {
     setDataBusy(true)
@@ -97,16 +91,6 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
       toast.success('Backup restored')
       setImportOpen(false); setImportFile(null); load()
     } catch (e) { toast.error(e.message) } finally { setDataBusy(false) }
-  }
-
-  const saveFbConfig = () => {
-    try {
-      if (!fbConfigText.trim()) { saveConfig(null); toast.success('Firebase config cleared – reload for local-only mode'); return }
-      const cfg = JSON.parse(fbConfigText) as FirebaseConfig
-      if (!cfg.apiKey || !cfg.projectId || !cfg.appId) throw new Error('Config needs at least apiKey, projectId and appId')
-      saveConfig(cfg)
-      toast.success('Firebase config saved – reload the page to start syncing')
-    } catch (e) { toast.error(e.message) }
   }
 
   const saveAir = async () => {
@@ -153,27 +137,14 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
         <div className="grid gap-4 lg:grid-cols-2 max-w-4xl">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">{syncActive ? <Cloud className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />} Firebase sync</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2"><Cloud className="h-4 w-4" /> Firebase sync</CardTitle>
               <CardDescription>
-                {syncActive
-                  ? `Connected – data syncs in real time with Firestore project "${projectId()}" and is cached offline on this device.`
-                  : 'Local-only mode: all data lives on this device (IndexedDB). Paste a Firebase web-app config below to sync between the web app and the Android APK.'}
+                {`Connected – data syncs in real time with Firestore project "${projectId()}" and is cached offline on this device.`}
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3">
-              <Textarea
-                rows={8}
-                className="font-mono text-xs"
-                placeholder={'{\n  "apiKey": "AIza…",\n  "authDomain": "my-project.firebaseapp.com",\n  "projectId": "my-project",\n  "storageBucket": "my-project.appspot.com",\n  "messagingSenderId": "1234567890",\n  "appId": "1:1234567890:web:abc123"\n}'}
-                value={fbConfigText}
-                onChange={(e) => setFbConfigText(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={saveFbConfig}><Save className="h-4 w-4 mr-1" /> Save config</Button>
-                <Button size="sm" variant="outline" onClick={() => { saveConfig(null); setFbConfigText(''); toast.success('Firebase config cleared – reload for local-only mode') }}>Use local only</Button>
-              </div>
+            <CardContent>
               <p className="text-xs text-muted-foreground">
-                Create a free project at console.firebase.google.com → add a Web app → Firestore Database → paste the config object here. Full steps in the README.
+                No setup needed on any device – the Firebase configuration is built into the app. Changes made offline are queued and sync automatically when connectivity returns.
               </p>
             </CardContent>
           </Card>

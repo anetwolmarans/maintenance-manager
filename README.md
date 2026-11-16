@@ -14,8 +14,7 @@ when you enable it.
 
 - Everything you enter is stored **on the device** (IndexedDB) – the app keeps
   working with no internet at all.
-- If a Firebase config is present (build-time secrets, or pasted in
-  **Settings → Data & sync**), the same data is mirrored to **Firestore**:
+- The same data is mirrored to **Firestore** (config is built into the app):
   devices sync in real time, and Firestore's offline cache queues changes made
   in the yard until connectivity returns.
 - Backups are one click: **Settings → Data & sync → Download backup (JSON)**,
@@ -82,28 +81,23 @@ that builds the static site and deploys it to Pages on every push to `main`:
    publishing to the Play Store.
 
 The APK is the same offline-first app – data lives on the device and syncs via
-Firestore once a config is provided (secrets at build time, or pasted in
-Settings on first launch).
+Firestore with no setup (the Firebase config is part of the app code).
 
-## Sync data with Firebase (optional)
+## Firebase sync (built in)
 
-1. Create a free project at [console.firebase.google.com](https://console.firebase.google.com).
-2. **Build → Firestore Database → Create database** (production mode is fine –
+The web-app config is hardcoded in `src/lib/firebase.ts`, so every build –
+GitHub Pages web app and APK – syncs automatically. Nothing to paste on any
+device; the only remaining one-time setup is in the Firebase console:
+
+1. **Build → Firestore Database → Create database** (production mode is fine –
    see `firestore.rules` in this repo).
-3. **Project settings → Your apps → Web app** (`</>`) → copy the config object
-   (`apiKey`, `authDomain`, `projectId`, `appId`, …).
-4. Enable sync on a device: open the app → **Settings → Data & sync** → paste
-   the config → **Save config** → reload. Repeat on other devices (or set the
-   config once as repository secrets `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`,
-   `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`,
-   `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` so every build ships with
-   sync enabled).
-5. Publish the rules: paste `firestore.rules` into Firebase console →
-   Firestore → Rules.
+2. **Authentication → Sign-in method → Anonymous → Enable** – the app signs in
+   anonymously, and the rules require `request.auth != null`.
+3. **Firestore → Rules** → paste `firestore.rules` → Publish.
 
-> **Security note:** the shipped rules are open (no sign-in) to keep setup
-> zero-config for a small team. Keep the project ID private, and lock the
-> rules down (`request.auth != null`) before sharing the app publicly.
+> **Security note:** a Firebase web API key is a public identifier, not a
+> secret – the shipped rules only accept authenticated (anonymous) clients,
+> so random visitors cannot read or write business data.
 
 ## Development
 
