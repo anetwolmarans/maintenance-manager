@@ -109,6 +109,19 @@ export function initSync(onData: Handler): boolean {
     const { initializeApp, getApps } = await import('firebase/app')
     const fs = await import('firebase/firestore')
     const app = getApps().length ? getApps()[0] : initializeApp(cfg)
+    // Sign in anonymously so the locked-down Firestore rules
+    // (`request.auth != null`) accept this device with no login screen.
+    // Requires Anonymous to be enabled once in Firebase console →
+    // Authentication → Sign-in method; until then sync stays offline.
+    try {
+      const { getAuth, signInAnonymously } = await import('firebase/auth')
+      await signInAnonymously(getAuth(app))
+    } catch (e) {
+      console.error(
+        '[sync] anonymous sign-in failed – enable it in Firebase console → Authentication → Sign-in method → Anonymous. Retrying on next reload.',
+        e,
+      )
+    }
     // Offline persistence + multi-tab support: Firestore queues writes while
     // offline and syncs when connectivity returns (yard Wi-Fi, tablet, APK).
     const db = fs.initializeFirestore(app, {
