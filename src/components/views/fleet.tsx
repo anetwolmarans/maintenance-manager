@@ -2,21 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { apiGet, apiSend, fmtDate, dateInput, todayInput } from '@/lib/api'
-import { downloadFleetReport } from '@/lib/pdf'
+import { downloadFleetReport, downloadInspectionSheet } from '@/lib/pdf'
 import type { FleetVehicle, FleetRecord, InspectionTemplate, Inspection } from '@/lib/types'
 import { ViewTitle, StatusBadge, DueBadge } from '@/components/views/shared'
 import { InspectionForm } from '@/components/inspection-form'
+import { DriverCheckForm } from '@/components/driver-check-form'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, FileDown, Truck, Wrench, ClipboardCheck, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, FileDown, Truck, Wrench, ClipboardCheck, Eye, Gauge, CarFront } from 'lucide-react'
 
 const emptyVeh = { id: '', regNo: '', make: '', model: '', type: 'LDV', year: '', odometerKm: 0, status: 'ACTIVE', assignedTo: '', serviceIntervalKm: '', serviceIntervalMonths: '', lastServiceDate: '', lastServiceOdometerKm: '', notes: '' }
 const emptyRec = { vehicleId: '', date: todayInput(), type: 'SERVICE', description: '', odometerKm: '', cost: '', workshop: '', performedBy: '', nextServiceDate: '', nextServiceKm: '' }
@@ -32,6 +35,9 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
   const [recOpen, setRecOpen] = useState(false)
   const [rec, setRec] = useState<typeof emptyRec>({ ...emptyRec })
   const [inspOpen, setInspOpen] = useState(false)
+  const [dcOpen, setDcOpen] = useState(false)
+  const [odoOpen, setOdoOpen] = useState(false)
+  const [odoForm, setOdoForm] = useState({ vehicleId: '', km: '' })
   const [deleteId, setDeleteId] = useState<{ id: string; entity?: string } | null>(null)
 
   const load = async () => {
@@ -56,6 +62,29 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
   }
 
   const filtered = useMemo(() => vehicles, [vehicles])
+
+  // vehicles with a service OVERDUE or DUE SOON (by km or months, whichever first)
+  const reminderList = useMemo(
+    () => vehicles
+      .filter((v) => v.status !== 'RETIRED')
+      .map((v) => ({ v, nd: nextDueInfo(v) }))
+      .filter(({ nd }) => nd.badge === 'OVERDUE' || nd.badge === 'DUE SOON'),
+    [vehicles],
+  )
+
+  const openOdo = (vehicleId: string, km: number) => { setOdoForm({ vehicleId, km: String(km) }); setOdoOpen(true) }
+
+  const saveOdometer = async () => {
+    const v = vehicles.find((x) => x.id === odoForm.vehicleId)
+    const km = Number(odoForm.km)
+    if (!v || !odoForm.km || Number.isNaN(km)) { toast.error('Choose a vehicle and enter the odometer reading'); return }
+    try {
+      await apiSend('/api/fleet', 'PUT', { ...v, odometerKm: Math.max(km, v.odometerKm) })
+      toast.success(`Odometer updated to ${km.toLocaleString('en')} km`)
+      setOdoOpen(false); load()
+      if (detail) { const fresh = await apiGet<FleetVehicle[]>('/api/fleet'); setDetail(fresh.find((x) => x.id === detail.id) || null) }
+    } catch (e) { toast.error(e.message) }
+  }
 
   const save = async () => {
     if (!form.regNo.trim() || !form.make.trim()) { toast.error('Reg no and make are required'); return }
@@ -113,6 +142,29 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
         }
       />
 
+      {reminderList.length > 0 && (
+        <Alert className="mb-4 border-amber-300/70 bg-amber-50/60">
+          <Wrench className="h-4 w-4 text-amber-600" />
+          <AlertTitle>Service reminders – {reminderList.length} vehicle(s) due or overdue</AlertTitle>
+          <AlertDescription>
+            <ul className="mt-1.5 space-y-1.5">
+              {reminderList.map(({ v, nd }) => (
+                <li key={v.id} className="flex flex-wrap items-center gap-2 text-sm border-b border-amber-200/60 pb-1.5 last:border-0">
+                  <Badge className={`rounded-full ${nd.badge === 'OVERDUE' ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20' : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-600/25'}`}>{nd.badge}</Badge>
+                  <span>
+                    <b>{v.regNo}</b> {v.make} {v.model} – next service {nd.nextKm ? `at ${nd.nextKm.toLocaleString('en')} km` : ''}{nd.nextDate ? `${nd.nextKm ? ' / ' : ''}${fmtDate(nd.nextDate)}` : ''}{!nd.nextKm && !nd.nextDate ? '(interval not set – add one in vehicle settings)' : ''}
+                  </span>
+                  <span className="ml-auto flex gap-1.5">
+                    <Button size="sm" variant="outline" className="h-7 text-xs bg-card" onClick={() => { setRec({ ...emptyRec, vehicleId: v.id, date: todayInput(), odometerKm: String(v.odometerKm), nextServiceKm: v.lastServiceOdometerKm != null && v.serviceIntervalKm ? String(v.lastServiceOdometerKm + v.serviceIntervalKm) : '' }); setRecOpen(true) }}><Wrench className="h-3.5 w-3.5 mr-1" /> Log service</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs bg-card" onClick={() => openOdo(v.id, v.odometerKm)}><Gauge className="h-3.5 w-3.5 mr-1" /> Update km</Button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="mb-4">
         <CardContent className="px-2 sm:px-4 py-0 overflow-x-auto">
           <Table>
@@ -153,6 +205,7 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="Open" onClick={() => { setDetail(v); setDetailTab('overview') }}><Eye className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Update odometer" onClick={() => openOdo(v.id, v.odometerKm)}><Gauge className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" onClick={() => { setForm({ ...emptyVeh, ...v, year: String(v.year || ''), serviceIntervalKm: String(v.serviceIntervalKm || ''), serviceIntervalMonths: String(v.serviceIntervalMonths || ''), lastServiceDate: dateInput(v.lastServiceDate), lastServiceOdometerKm: String(v.lastServiceOdometerKm || '') } as typeof emptyVeh); setEditOpen(true) }}><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" title="Delete" onClick={() => setDeleteId({ id: v.id })}><Trash2 className="h-4 w-4" /></Button>
                           </div>
@@ -214,16 +267,26 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
                 <TabsList className="flex-wrap h-auto [&>[data-slot=tabs-trigger]]:h-auto [&>[data-slot=tabs-trigger]]:flex-none"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="records">Service & repairs ({detail.records.length})</TabsTrigger><TabsTrigger value="inspections">Inspections ({(detail.inspections || []).length})</TabsTrigger></TabsList>
 
                 <TabsContent value="overview" className="mt-3 space-y-2 text-sm">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <p><span className="text-muted-foreground">Odometer:</span> {detail.odometerKm.toLocaleString('en')} km</p>
-                    <p><span className="text-muted-foreground">Assigned to:</span> {detail.assignedTo || '-'}</p>
-                    <p><span className="text-muted-foreground">Service interval:</span> {detail.serviceIntervalKm || '-'} km / {detail.serviceIntervalMonths || '-'} months</p>
-                    <p><span className="text-muted-foreground">Last service:</span> {fmtDate(detail.lastServiceDate)} at {detail.lastServiceOdometerKm?.toLocaleString('en') || '-'} km</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Button size="sm" onClick={() => { setRec({ ...emptyRec, vehicleId: detail.id, odometerKm: String(detail.odometerKm), nextServiceKm: detail.lastServiceOdometerKm != null && detail.serviceIntervalKm ? String(detail.lastServiceOdometerKm + detail.serviceIntervalKm) : '' }); setRecOpen(true) }}><Wrench className="h-4 w-4 mr-1" /> Log service / repair</Button>
-                    <Button size="sm" variant="outline" onClick={() => setInspOpen(true)}><ClipboardCheck className="h-4 w-4 mr-1" /> Inspect (signed)</Button>
-                  </div>
+                  {(() => {
+                    const lastDC = (detail.inspections || []).find((i) => i.type === 'DRIVER_CHECK')
+                    return (
+                      <>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <p><span className="text-muted-foreground">Odometer:</span> {detail.odometerKm.toLocaleString('en')} km</p>
+                          <p><span className="text-muted-foreground">Assigned to:</span> {detail.assignedTo || '-'}</p>
+                          <p><span className="text-muted-foreground">Service interval:</span> {detail.serviceIntervalKm || '-'} km / {detail.serviceIntervalMonths || '-'} months</p>
+                          <p><span className="text-muted-foreground">Last service:</span> {fmtDate(detail.lastServiceDate)} at {detail.lastServiceOdometerKm?.toLocaleString('en') || '-'} km</p>
+                          <p className="sm:col-span-2"><span className="text-muted-foreground">Last driver check:</span> {lastDC ? <>{fmtDate(lastDC.date)} by {lastDC.inspectorName} <StatusBadge status={lastDC.status} /></> : 'none yet'}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <Button size="sm" onClick={() => { setRec({ ...emptyRec, vehicleId: detail.id, odometerKm: String(detail.odometerKm), nextServiceKm: detail.lastServiceOdometerKm != null && detail.serviceIntervalKm ? String(detail.lastServiceOdometerKm + detail.serviceIntervalKm) : '' }); setRecOpen(true) }}><Wrench className="h-4 w-4 mr-1" /> Log service / repair</Button>
+                          <Button size="sm" variant="outline" onClick={() => setInspOpen(true)}><ClipboardCheck className="h-4 w-4 mr-1" /> Inspect (signed)</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDcOpen(true)}><CarFront className="h-4 w-4 mr-1" /> Driver check</Button>
+                          <Button size="sm" variant="outline" onClick={() => openOdo(detail.id, detail.odometerKm)}><Gauge className="h-4 w-4 mr-1" /> Update km</Button>
+                        </div>
+                      </>
+                    )
+                  })()}
                   {detail.notes && <p className="text-muted-foreground">Notes: {detail.notes}</p>}
                 </TabsContent>
 
@@ -302,6 +365,33 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
 
       {/* Fleet inspection (target vehicle chosen inside the form) */}
       <InspectionForm open={inspOpen} onOpenChange={setInspOpen} templates={templates} units={[]} vehicles={vehicles} fixedType="FLEET" fixedVehicleId={detail?.id} onSaved={() => { load(); if (detail) apiGet<FleetVehicle[]>('/api/fleet').then((f) => setDetail(f.find((x) => x.id === detail.id) || null)) }} />
+
+      {/* Driver pre-trip check for the open vehicle */}
+      <DriverCheckForm open={dcOpen} onOpenChange={setDcOpen} vehicles={vehicles} templates={templates.filter((t) => t.category === 'DRIVER_CHECK')} fixedVehicleId={detail?.id} onSaved={() => { load(); if (detail) apiGet<FleetVehicle[]>('/api/fleet').then((f) => setDetail(f.find((x) => x.id === detail.id) || null)) }} />
+
+      {/* Quick odometer update */}
+      <Dialog open={odoOpen} onOpenChange={setOdoOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Gauge className="h-5 w-5" /> Update odometer</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            {!detail && (
+              <div>
+                <Label>Vehicle</Label>
+                <Select value={odoForm.vehicleId} onValueChange={(v) => setOdoForm({ ...odoForm, vehicleId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Choose vehicle" /></SelectTrigger>
+                  <SelectContent>{vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.regNo} – {v.make} {v.model}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Odometer reading (km)</Label>
+              <Input type="number" inputMode="numeric" value={odoForm.km} onChange={(e) => setOdoForm({ ...odoForm, km: e.target.value })} />
+            </div>
+            <p className="text-xs text-muted-foreground">Service reminders are calculated from this reading. Drivers also update it automatically when they submit a driver check.</p>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOdoOpen(false)}>Cancel</Button><Button onClick={saveOdometer}>Save reading</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={Boolean(deleteId)} onOpenChange={(v) => !v && setDeleteId(null)}>
         <AlertDialogContent>

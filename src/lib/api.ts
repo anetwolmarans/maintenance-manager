@@ -44,6 +44,13 @@ export function todayInput(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+/** True when the given date falls on the same calendar day as `ref` (defaults to now). */
+export function isSameDay(d: string | Date | null | undefined, ref: Date = new Date()): boolean {
+  if (!d) return false
+  const a = new Date(d)
+  return a.getFullYear() === ref.getFullYear() && a.getMonth() === ref.getMonth() && a.getDate() === ref.getDate()
+}
+
 export function dateInput(d: string | Date | null | undefined): string {
   if (!d) return ''
   const x = new Date(d)

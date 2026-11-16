@@ -147,6 +147,9 @@ async function main() {
   await it('Fleet daily / weekly inspection', 'FLEET', 0, 'Driver or supervisor walk-around.', [
     'Tyres & pressure OK', 'Lights & indicators OK', 'Brakes OK', 'Fluids (oil / coolant / brake) OK', 'Battery secure', 'Body / canopy damage check', 'Load bed clean & secure', 'Spare wheel & jack present', 'Licence disc valid', 'Fire extinguisher present', 'Odometer reading noted',
   ])
+  await it('Driver daily walk-around check', 'DRIVER_CHECK', 0, 'Quick pre-trip check done by the driver – any FAIL flags a defect for the office.', [
+    'Licence disc & papers valid', 'Tyres (condition & pressure) incl. spare', 'Lights, indicators & hazard OK', 'Brakes & handbrake OK', 'Oil / coolant / washer fluid OK', 'Battery secure, no corrosion', 'Windscreen, mirrors & wipers OK', 'Horn working', 'Seatbelts intact', 'Load / canopy closed & strapped', 'Fire extinguisher present', 'No new dents, scratches or leaks', 'Cab clean, tools & jack on board', 'Odometer reading noted',
+  ])
 
   // ---- stock items + BOM for a standard container build ----
   const si = (name: string, sku: string, category: string, unit: string, qty: number, rp: number, rq: number, cost: number, supplierId: string, location = 'Yard store') =>

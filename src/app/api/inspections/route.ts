@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
       type: b.type, date,
       inspectorName: b.inspectorName, clientName: b.clientName || null,
       signature: b.signature || null, status: b.status || 'PASS',
-      findings: b.findings || null, items: b.items ? JSON.stringify(b.items) : '[]',
+      findings: b.findings || null, odometerKm: b.odometerKm ?? null,
+      items: b.items ? JSON.stringify(b.items) : '[]',
     },
   })
   const failed = (b.items || []).filter((x: { result: string }) => x.result === 'FAIL').length
@@ -40,8 +41,12 @@ export async function POST(req: NextRequest) {
     await db.unitHistory.create({
       data: { unitId: b.unitId, date, type: 'QCP', refId: inspection.id, person: b.inspectorName, description: `QCP: ${tpl?.name || b.templateName || 'stage'} – ${b.status}${failed ? `, ${failed} item(s) failed` : ''}` },
     })
-  } else if (b.type === 'FLEET' && b.vehicleId) {
-    if (b.odometerKm) await db.fleetVehicle.update({ where: { id: b.vehicleId }, data: { odometerKm: b.odometerKm } })
+  } else if ((b.type === 'FLEET' || b.type === 'DRIVER_CHECK') && b.vehicleId) {
+    if (b.odometerKm) {
+      const veh = await db.fleetVehicle.findUnique({ where: { id: b.vehicleId } })
+      // only move the odometer forward, never backwards
+      if (veh && b.odometerKm > veh.odometerKm) await db.fleetVehicle.update({ where: { id: b.vehicleId }, data: { odometerKm: b.odometerKm } })
+    }
   }
   return Response.json(inspection)
 }

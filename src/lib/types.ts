@@ -89,13 +89,14 @@ export interface Inspection {
   vehicleId?: string | null
   templateId?: string | null
   template?: InspectionTemplate | null
-  type: 'OUTGOING' | 'RETURN' | 'QCP' | 'FLEET'
+  type: 'OUTGOING' | 'RETURN' | 'QCP' | 'FLEET' | 'DRIVER_CHECK'
   date: string
   inspectorName: string
   clientName?: string | null
   signature?: string | null
   status: string
   findings?: string | null
+  odometerKm?: number | null
   items: string
   unit?: { code: string; description?: string; client?: string } | null
   vehicle?: { regNo: string; make: string; model: string } | null

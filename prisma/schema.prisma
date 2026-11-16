@@ -171,7 +171,7 @@ model InspectionTemplate {
   inspections Inspection[]
 }
 
-// type: OUTGOING | RETURN | QCP | FLEET
+// type: OUTGOING | RETURN | QCP | FLEET | DRIVER_CHECK
 // items: JSON [{ text, result: PASS|FAIL|N/A, notes }]
 // signature: PNG data URL signed on tablet
 model Inspection {
@@ -189,6 +189,7 @@ model Inspection {
   signature     String?
   status        String             @default("PASS")
   findings      String?
+  odometerKm    Int?
   items         String
   createdAt     DateTime           @default(now())
 }

@@ -11,12 +11,13 @@ import { InspectionsView } from '@/components/views/inspections'
 import { QcpView } from '@/components/views/qcp'
 import { StockView } from '@/components/views/stock'
 import { FleetView } from '@/components/views/fleet'
+import { DriverChecksView } from '@/components/views/driver-checks'
 import { ReportsView } from '@/components/views/reports'
 import { SettingsView } from '@/components/views/settings'
 import {
   LayoutDashboard, Boxes, Wrench, ClipboardCheck, ShieldCheck, Package,
   Truck, FileDown, Settings as SettingsIcon, Menu, RefreshCw, Building2,
-  MapPin,
+  MapPin, CarFront,
 } from 'lucide-react'
 
 const NAV = [
@@ -27,6 +28,7 @@ const NAV = [
   { key: 'qcp', label: 'QCP', icon: ShieldCheck, group: 'Operations', desc: 'Quality control plan with hold points' },
   { key: 'stock', label: 'Stock', icon: Package, group: 'Stock & fleet', desc: 'Inventory, reorder points and supplier lead times' },
   { key: 'fleet', label: 'Fleet', icon: Truck, group: 'Stock & fleet', desc: 'Vehicles, services, repairs and inspections' },
+  { key: 'driverchecks', label: 'Driver checks', icon: CarFront, group: 'Stock & fleet', desc: 'Daily pre-trip walk-arounds, signed by drivers' },
   { key: 'reports', label: 'Reports', icon: FileDown, group: 'Office', desc: 'Downloadable reports and inspection sheets' },
   { key: 'settings', label: 'Settings', icon: SettingsIcon, group: 'Office', desc: 'Company details, email reminders and install guide' },
 ]
@@ -184,6 +186,7 @@ export default function Home() {
             {view === 'qcp' && <QcpView refreshKey={refreshKey} />}
             {view === 'stock' && <StockView refreshKey={refreshKey} onNavigate={go} />}
             {view === 'fleet' && <FleetView refreshKey={refreshKey} />}
+            {view === 'driverchecks' && <DriverChecksView refreshKey={refreshKey} />}
             {view === 'reports' && <ReportsView refreshKey={refreshKey} />}
             {view === 'settings' && <SettingsView refreshKey={refreshKey} />}
           </main>

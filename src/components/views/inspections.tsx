@@ -79,6 +79,7 @@ export function InspectionsView({ refreshKey }: { refreshKey: number }) {
             <SelectItem value="RETURN">Return (receive back)</SelectItem>
             <SelectItem value="QCP">QCP</SelectItem>
             <SelectItem value="FLEET">Fleet</SelectItem>
+            <SelectItem value="DRIVER_CHECK">Driver checks</SelectItem>
           </SelectContent>
         </Select>
         <div className="relative flex-1 min-w-52">

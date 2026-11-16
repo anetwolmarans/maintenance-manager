@@ -87,6 +87,23 @@ export async function collectReminders(): Promise<{ sections: ReminderSection[];
   }
   if (fleetDue.length) sections.push({ title: `Fleet services due: ${fleetDue.length}`, lines: fleetDue })
 
+  // 3b) defects reported by drivers in the last 7 days (driver check FAIL items)
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000)
+  const driverChecks = await db.inspection.findMany({
+    where: { type: 'DRIVER_CHECK', date: { gte: weekAgo }, status: { not: 'PASS' } },
+    include: { vehicle: { select: { regNo: true, make: true, model: true } } },
+    orderBy: { date: 'desc' },
+  })
+  const defectLines: string[] = []
+  for (const c of driverChecks) {
+    let failed: { text?: string; notes?: string }[] = []
+    try { failed = (JSON.parse(c.items || '[]') as { text?: string; notes?: string; result?: string }[]).filter((x) => x.result === 'FAIL') } catch { /* ignore bad JSON */ }
+    if (!failed.length) continue
+    const reg = c.vehicle?.regNo || 'unknown vehicle'
+    defectLines.push(`- ${reg}: ${failed.map((x) => `${x.text}${x.notes ? ` (${x.notes})` : ''}`).join('; ')} — reported by ${c.inspectorName} on ${fmt(c.date)}`)
+  }
+  if (defectLines.length) sections.push({ title: `Vehicle defects reported by drivers (last 7 days): ${defectLines.length}`, lines: defectLines })
+
   // 4) units overdue back from clients
   const out = await db.unit.findMany({ where: { status: 'CLIENT_SITE', dueBack: { not: null } } })
   const overdueOut = out.filter((u) => u.dueBack && u.dueBack < today)
