@@ -20,7 +20,7 @@ Android tablets as a PWA, and optimised for touch.
 - **Inspections & sign-outs** – outgoing (dispatch) and return inspections with
   checklists and a required signature, updating unit status automatically.
 - **QCP** – quality control plan with hold-point stages (frame, insulation,
-  electrical, plumbing, painting, fit-out, final handover).
+  doors & windows, electrical, plumbing, painting, fit-out, final handover).
 - **Stock** – inventory with reorder points, supplier lead times, bill of
   materials for a standard container build and "how many can we build".
 - **Fleet** – vehicles with service intervals by km *and* months (whichever
@@ -31,7 +31,7 @@ Android tablets as a PWA, and optimised for touch.
   defect notes, required signature. Failed items are flagged to the office and
   included in the reminder email.
 - **Reports** – downloadable PDFs: fleet report, inspection sheets, maintenance
-  plan, stock report, unit history, QCP plan.
+  plan, stock report, unit history, unit stock take, QCP plan.
 - **Email reminders** – a digest of everything due (maintenance, stock, fleet
   services, driver-reported defects, units overdue back) sent to configurable
   recipients via SMTP, manually or on a schedule.
@@ -73,8 +73,12 @@ bun run start      # serves the standalone build
 `.env` (git-ignored) only needs the database URL:
 
 ```
-DATABASE_URL="file:./db/custom.db"
+DATABASE_URL="file:../db/custom.db"
 ```
+
+Note: Prisma resolves relative SQLite paths from the `prisma/` folder (where
+`schema.prisma` lives), so `../db/custom.db` puts the database at `db/custom.db`
+in the project root.
 
 ### Email reminders (optional)
 
