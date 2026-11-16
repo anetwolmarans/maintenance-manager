@@ -1,17 +1,30 @@
 # Maintenance Manager – Prefab & Container Business (Namibia)
 
-A self-hosted web app for running the maintenance side of a prefab and container
+An offline-first app for running the maintenance side of a prefab and container
 rental business: unit register and sign-outs, preventative maintenance schedules,
 signed inspections, stock with supplier lead times, and fleet management with
 driver pre-trip checks and service reminders.
 
-Built for Windhoek, Namibia – works offline in the yard, installable on
-Android tablets as a PWA, and optimised for touch.
+Built for Windhoek, Namibia – works fully offline in the yard, runs as a static
+site on **GitHub Pages** (no server needed), installs on Android tablets as a
+PWA or **APK**, and syncs data between devices through **Firebase Firestore**
+when you enable it.
+
+## How the data layer works
+
+- Everything you enter is stored **on the device** (IndexedDB) – the app keeps
+  working with no internet at all.
+- If a Firebase config is present (build-time secrets, or pasted in
+  **Settings → Data & sync**), the same data is mirrored to **Firestore**:
+  devices sync in real time, and Firestore's offline cache queues changes made
+  in the yard until connectivity returns.
+- Backups are one click: **Settings → Data & sync → Download backup (JSON)**,
+  restore on any other device with *Restore backup*.
 
 ## Features
 
 - **Dashboard** – today's overview: overdue maintenance, what's due in 30 days,
-  stock to reorder, fleet services due, recent inspections and email log.
+  stock to reorder, fleet services due, recent inspections and digest log.
 - **Units** – register of containers/prefab units with contents (aircons, doors,
   windows), build team, status (in stock / at client / in maintenance), history
   timeline and per-unit maintenance schedules.
@@ -29,86 +42,106 @@ Android tablets as a PWA, and optimised for touch.
 - **Driver checks** – daily pre-trip walk-around that drivers complete on a
   phone: big PASS/FAIL buttons, odometer entry (kept in sync with the vehicle),
   defect notes, required signature. Failed items are flagged to the office and
-  included in the reminder email.
+  included in the reminder digest.
 - **Reports** – downloadable PDFs: fleet report, inspection sheets, maintenance
   plan, stock report, unit history, unit stock take, QCP plan.
-- **Email reminders** – a digest of everything due (maintenance, stock, fleet
-  services, driver-reported defects, units overdue back) sent to configurable
-  recipients via SMTP, manually or on a schedule.
+- **Reminder digest** – "Build digest & email" collects everything due
+  (maintenance, stock, fleet services, driver-reported defects, units overdue
+  back), copies it and opens it in your email app addressed to the recipients
+  configured in Settings.
 
 ## Tech stack
 
-- [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS +
-  shadcn/ui components
-- [Prisma](https://www.prisma.io) ORM with SQLite (single-file, zero-config DB)
+- [Next.js](https://nextjs.org) (App Router, static export) + TypeScript +
+  Tailwind CSS + shadcn/ui components
+- On-device database: IndexedDB; device-to-device sync: [Firebase](https://firebase.google.com)
+  Firestore (optional, offline-persistent)
 - [Bun](https://bun.sh) as package manager and runtime (npm/Node also work)
+- [Capacitor](https://capacitorjs.com) wraps the same build as an Android APK
 - PWA service worker for offline-capable install on tablets
 - Client-side PDF generation with jsPDF
 
-## Getting started
+## Web app on GitHub Pages
+
+The repo ships with a GitHub Actions workflow (`.github/workflows/pages.yml`)
+that builds the static site and deploys it to Pages on every push to `main`:
+
+**https://anetwolmarans.github.io/maintenance-manager/**
+
+> First time: enable Pages once in the repo → *Settings → Pages → Source:
+> GitHub Actions*. No secrets are required for local-mode (device-only) use.
+
+## Android APK
+
+`.github/workflows/apk.yml` builds a debug APK on every push:
+
+1. GitHub repo → **Actions → Build Android APK** → latest run.
+2. Download the **maintenance-manager-apk** artifact → `app-debug.apk`.
+3. Copy to the tablet and tap to install (allow "install unknown apps").
+   Debug APKs install fine for sideloading; build a signed release APK before
+   publishing to the Play Store.
+
+The APK is the same offline-first app – data lives on the device and syncs via
+Firestore once a config is provided (secrets at build time, or pasted in
+Settings on first launch).
+
+## Sync data with Firebase (optional)
+
+1. Create a free project at [console.firebase.google.com](https://console.firebase.google.com).
+2. **Build → Firestore Database → Create database** (production mode is fine –
+   see `firestore.rules` in this repo).
+3. **Project settings → Your apps → Web app** (`</>`) → copy the config object
+   (`apiKey`, `authDomain`, `projectId`, `appId`, …).
+4. Enable sync on a device: open the app → **Settings → Data & sync** → paste
+   the config → **Save config** → reload. Repeat on other devices (or set the
+   config once as repository secrets `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`,
+   `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`,
+   `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` so every build ships with
+   sync enabled).
+5. Publish the rules: paste `firestore.rules` into Firebase console →
+   Firestore → Rules.
+
+> **Security note:** the shipped rules are open (no sign-in) to keep setup
+> zero-config for a small team. Keep the project ID private, and lock the
+> rules down (`request.auth != null`) before sharing the app publicly.
+
+## Development
 
 ```bash
 # 1. install dependencies
 bun install        # or: npm install
 
-# 2. create/update the database from the schema (SQLite, file: db/custom.db)
-bun run db:push    # or: bunx prisma db push
-
-# 3. (optional) load realistic sample data: units, vehicles, stock, templates
-bun scripts/seed.ts
-
-# 4. start the dev server on http://localhost:3000
+# 2. start the dev server on http://localhost:3000
 bun run dev        # or: npm run dev
-```
 
-For production:
-
-```bash
+# 3. static production build → out/
 bun run build
-bun run start      # serves the standalone build
+
+# 4. build for the APK (writes web assets into the Capacitor project)
+bun run android:sync
+cd android && ./gradlew assembleDebug   # needs Java 21 + Android SDK
 ```
 
-### Environment
-
-`.env` (git-ignored) only needs the database URL:
-
-```
-DATABASE_URL="file:../db/custom.db"
-```
-
-Note: Prisma resolves relative SQLite paths from the `prisma/` folder (where
-`schema.prisma` lives), so `../db/custom.db` puts the database at `db/custom.db`
-in the project root.
-
-### Email reminders (optional)
-
-Set SMTP and recipient settings in **Settings** inside the app:
-
-- `smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass`, `smtp_from`
-- `reminder_emails` – comma-separated recipients
-- `reminder_days_ahead` – how far ahead to warn (default 14)
-
-"Run reminders now" on the dashboard sends the digest immediately and logs the
-result (see the Email log section on the dashboard).
-
-### Installing on tablets (PWA)
-
-Open the app in Chrome on Android → menu → **Install app** / **Add to Home
-screen**. The service worker keeps static assets cached so the app opens
-reliably on yard Wi-Fi or offline; data is stored in the SQLite database on the
-server.
+On first launch the app is empty – use **Settings → Data & sync → Load sample
+data** for the Namibian demo dataset (units, suppliers, stock, QCP templates,
+fleet), or just start entering your own data.
 
 ## Project structure
 
 ```
-prisma/schema.prisma        # data model (units, inspections, stock, fleet, settings…)
-scripts/seed.ts             # sample data for a fresh database
-src/app/api/                # REST API routes (one folder per resource)
+src/lib/store.ts            # on-device store (IndexedDB) + change notifications
+src/lib/firebase.ts         # Firestore sync bridge (real-time, offline queue)
+src/lib/api.ts              # data gateway used by all views (same API as before)
+src/lib/sample-data.ts      # demo dataset loader (Settings → Load sample data)
+src/lib/pdf.ts              # client-side PDF reports (jsPDF)
 src/app/page.tsx            # single-page app shell + navigation
 src/components/views/       # one view per section (dashboard, fleet, stock…)
 src/components/             # shared forms (inspection, driver check, signature pad)
-src/lib/                    # prisma client, reminder engine, PDF reports, helpers
 public/sw.js                # service worker (cache-first assets, network-first pages)
+capacitor.config.ts         # Capacitor (APK) configuration
+android/                    # Capacitor Android project (APK builds from here)
+firestore.rules             # Firestore security rules
+.github/workflows/          # Pages deploy + APK build pipelines
 ```
 
 ## Driver checks & fleet service reminders in detail
@@ -120,12 +153,17 @@ public/sw.js                # service worker (cache-first assets, network-first 
 2. The vehicle's odometer is updated automatically (never backwards), which
    keeps km-based service calculations accurate.
 3. The office sees flagged defects in a "follow up" panel and in the reminder
-   email; the fleet page shows a **Service reminders** panel listing vehicles
+   digest; the fleet page shows a **Service reminders** panel listing vehicles
    OVERDUE or DUE SOON with one-tap *Log service* and *Update km* actions.
 
 ## Notes
 
+- **No mail server:** the app runs entirely in the browser, so the digest is
+  handed to your email client (mailto) instead of being sent by SMTP. Data and
+  the digest body are also kept in the app (Settings → Email log).
+- **Backups:** even with Firestore sync, export a JSON backup regularly –
+  it is the fastest way to move data or recover from a mistake.
+- **History:** the earlier self-hosted server version (Next.js API routes +
+  Prisma/SQLite + SMTP) is preserved in the git history of this repository.
 - Sample data (units, suppliers, templates) is illustrative and grounded in the
-  Namibian market; replace with your own via the UI.
-- The database is a single SQLite file – back up `db/custom.db` regularly
-  (it is excluded from git).
+  Namibian market; replace it with your own via the UI.

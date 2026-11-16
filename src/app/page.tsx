@@ -49,9 +49,10 @@ export default function Home() {
         if (d.settings.company_slogan) setSlogan(d.settings.company_slogan)
       })
       .catch(() => {})
-    // register service worker for PWA install (APK-style install on Android)
+    // register service worker for PWA install (relative path: works on GitHub
+    // Pages sub-paths, localhost and inside the Capacitor APK)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      navigator.serviceWorker.register('sw.js').catch(() => {})
     }
   }, [])
 

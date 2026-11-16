@@ -24,10 +24,12 @@ export const metadata: Metadata = {
   description:
     "Preventative maintenance for prefab and container units: aircon services, painting, yard & window cleaning, QCP, signed inspections, stock with supplier lead times and fleet management.",
   applicationName: "Maintenance Manager",
-  manifest: "/manifest.webmanifest",
+  // relative URLs: resolve against the app root on GitHub Pages sub-paths,
+  // on localhost and inside the Capacitor APK
+  manifest: "manifest.webmanifest",
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png",
+    icon: "./icons/icon-192.png",
+    apple: "./icons/icon-192.png",
   },
 };
 

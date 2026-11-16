@@ -1,6 +1,10 @@
-/* Minimal service worker – makes the app installable on Android/tablets.
- * Network-first for pages and API, cache-first for static assets. */
-const CACHE = 'maint-app-v1'
+/* Minimal service worker – makes the app installable and offline-capable.
+ * Network-first for pages, cache-first for static assets.
+ * Scope-aware so it works at the GitHub Pages sub-path, on localhost and
+ * inside the Capacitor APK. */
+const CACHE = 'maint-app-v2'
+// e.g. '/maintenance-manager/' on GitHub Pages, '/' locally / in the APK
+const BASE = new URL(self.registration.scope).pathname
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -22,7 +26,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return
 
   // static build assets: cache-first
-  if (url.pathname.startsWith('/_next/static') || url.pathname.startsWith('/icons')) {
+  if (url.pathname.includes('/_next/static') || url.pathname.startsWith(BASE + 'icons')) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const hit = await cache.match(event.request)
@@ -35,7 +39,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // everything else: network-first (fresh data), fall back to cache when offline
+  // everything else: network-first (fresh content), fall back to cache when offline
   event.respondWith(
     fetch(event.request)
       .then((res) => {
@@ -44,6 +48,8 @@ self.addEventListener('fetch', (event) => {
         }
         return res
       })
-      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('/'))),
+      .catch(() =>
+        caches.match(event.request).then((hit) => hit || caches.match(BASE)).then((hit) => hit || caches.match(BASE + 'index.html')),
+      ),
   )
 })

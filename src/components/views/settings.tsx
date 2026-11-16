@@ -12,10 +12,14 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, MailCheck, Smartphone, Download, Share2, Settings2, Save, Send, RefreshCw } from 'lucide-react'
+import { Plus, Pencil, Trash2, MailCheck, Smartphone, Download, Share2, Settings2, Save, Send, RefreshCw, Database, Upload, Cloud, CloudOff } from 'lucide-react'
+import { exportAll, importAll } from '@/lib/store'
+import { loadSampleData } from '@/lib/sample-data'
+import { syncMode, projectId, readStoredConfig, saveConfig, type FirebaseConfig } from '@/lib/firebase'
 
 const emptyAir = { id: '', brand: '', model: '', type: 'Split inverter', btu: 12000, serviceIntervalMonths: 6, filterCleanMonths: 1, supplier: '', source: '', notes: '' }
 
@@ -26,8 +30,13 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
   const [airEdit, setAirEdit] = useState<typeof emptyAir | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
-  const [tab, setTab] = useState('company')
+  const [tab, setTab] = useState('data')
   const [loading, setLoading] = useState(true)
+  const [fbConfigText, setFbConfigText] = useState('')
+  const [dataBusy, setDataBusy] = useState(false)
+  const [seedOpen, setSeedOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -37,6 +46,8 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
         apiGet<AirconModel[]>('/api/aircons'),
       ])
       setSettings(s.settings); setEmailLogs(s.emailLogs); setAircons(a)
+      const stored = readStoredConfig()
+      setFbConfigText(stored ? JSON.stringify(stored, null, 2) : '')
     } catch (e) { toast.error(e.message) } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [refreshKey])
@@ -52,10 +63,50 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
     try {
       await apiSend('/api/settings', 'PUT', { settings })
       const r = await apiSend<{ ok: boolean; status?: string; error?: string }>('/api/settings', 'POST', { action: 'test_email' })
-      if (r.ok) toast.success('Test email sent – check the inbox')
-      else toast.warning(r.error || 'Email failed – check SMTP settings')
+      if (r.ok) toast.success('Opened your email app with a test message')
+      else toast.warning(r.error || 'Email failed – no recipient set')
       load()
     } catch (e) { toast.error(e.message) } finally { setTesting(false) }
+  }
+
+  const syncActive = syncMode() === 'firebase'
+
+  const runSeed = async () => {
+    setDataBusy(true)
+    try { await loadSampleData(); toast.success('Sample data loaded'); load() }
+    catch (e) { toast.error(e.message) } finally { setDataBusy(false) }
+  }
+
+  const exportBackup = () => {
+    const blob = new Blob([JSON.stringify(exportAll(), null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `maintenance-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    toast.success('Backup downloaded')
+  }
+
+  const runImport = async () => {
+    if (!importFile) return
+    setDataBusy(true)
+    try {
+      const parsed = JSON.parse(await importFile.text())
+      if (!parsed?.collections) throw new Error('Not a valid backup file')
+      await importAll(parsed)
+      toast.success('Backup restored')
+      setImportOpen(false); setImportFile(null); load()
+    } catch (e) { toast.error(e.message) } finally { setDataBusy(false) }
+  }
+
+  const saveFbConfig = () => {
+    try {
+      if (!fbConfigText.trim()) { saveConfig(null); toast.success('Firebase config cleared – reload for local-only mode'); return }
+      const cfg = JSON.parse(fbConfigText) as FirebaseConfig
+      if (!cfg.apiKey || !cfg.projectId || !cfg.appId) throw new Error('Config needs at least apiKey, projectId and appId')
+      saveConfig(cfg)
+      toast.success('Firebase config saved – reload the page to start syncing')
+    } catch (e) { toast.error(e.message) }
   }
 
   const saveAir = async () => {
@@ -90,12 +141,62 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
 
       <Tabs value={tab} onValueChange={setTab} className="mb-4">
         <TabsList className="flex-wrap h-auto [&>[data-slot=tabs-trigger]]:h-auto [&>[data-slot=tabs-trigger]]:flex-none">
+          <TabsTrigger value="data">Data & sync</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="email">Email reminders</TabsTrigger>
           <TabsTrigger value="aircons">Aircon models</TabsTrigger>
           <TabsTrigger value="mobile">Mobile / APK</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {tab === 'data' && (
+        <div className="grid gap-4 lg:grid-cols-2 max-w-4xl">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">{syncActive ? <Cloud className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />} Firebase sync</CardTitle>
+              <CardDescription>
+                {syncActive
+                  ? `Connected – data syncs in real time with Firestore project "${projectId()}" and is cached offline on this device.`
+                  : 'Local-only mode: all data lives on this device (IndexedDB). Paste a Firebase web-app config below to sync between the web app and the Android APK.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <Textarea
+                rows={8}
+                className="font-mono text-xs"
+                placeholder={'{\n  "apiKey": "AIza…",\n  "authDomain": "my-project.firebaseapp.com",\n  "projectId": "my-project",\n  "storageBucket": "my-project.appspot.com",\n  "messagingSenderId": "1234567890",\n  "appId": "1:1234567890:web:abc123"\n}'}
+                value={fbConfigText}
+                onChange={(e) => setFbConfigText(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={saveFbConfig}><Save className="h-4 w-4 mr-1" /> Save config</Button>
+                <Button size="sm" variant="outline" onClick={() => { saveConfig(null); setFbConfigText(''); toast.success('Firebase config cleared – reload for local-only mode') }}>Use local only</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Create a free project at console.firebase.google.com → add a Web app → Firestore Database → paste the config object here. Full steps in the README.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2"><Database className="h-4 w-4" /> Data & backups</CardTitle>
+              <CardDescription>Everything lives on this device (and in Firestore when sync is on) – download a JSON backup regularly.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={exportBackup}><Download className="h-4 w-4 mr-1" /> Download backup (JSON)</Button>
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Restore backup</Button>
+              </div>
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                <p className="font-medium mb-1">Load sample data</p>
+                <p className="text-muted-foreground mb-2">Replaces <b>everything</b> with the Namibian demo dataset: units, equipment, suppliers, stock & BOM, maintenance schedules, QCP templates, fleet vehicles and records.</p>
+                <Button variant="outline" size="sm" onClick={() => setSeedOpen(true)} disabled={dataBusy}><Database className="h-4 w-4 mr-1" /> Load sample data…</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {tab === 'company' && (
         <Card className="max-w-xl">
@@ -114,7 +215,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
       {tab === 'email' && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><MailCheck className="h-4 w-4" /> Reminder emails</CardTitle><CardDescription>The app checks every 30 minutes and emails maintenance due soon, stock below reorder point (with supplier lead times) and fleet services due.</CardDescription></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><MailCheck className="h-4 w-4" /> Reminder digest</CardTitle><CardDescription>This offline-first app builds a digest (maintenance due soon, stock below reorder point with supplier lead times, fleet services due, driver-reported defects) and opens it in your email app – no mail server needed. Build it from the dashboard with “Build digest & email”.</CardDescription></CardHeader>
             <CardContent className="grid gap-3">
               <div>
                 <Label>Send reminders to (comma-separated)</Label>
@@ -128,7 +229,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
                 <Switch checked={settings.reminders_enabled !== 'false'} onCheckedChange={(v) => set('reminders_enabled', v)} id="reminders" />
                 <Label htmlFor="reminders">Email reminders enabled</Label>
               </div>
-              <p className="text-xs text-muted-foreground">Last automatic check: {settings.last_reminder_run ? fmtDateTime(settings.last_reminder_run) : 'never yet'}</p>
+              <p className="text-xs text-muted-foreground">Last digest built: {settings.last_reminder_run ? fmtDateTime(settings.last_reminder_run) : 'never yet'}</p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={testEmail} disabled={testing}><Send className="h-4 w-4 mr-1" /> Send test email</Button>
                 <Button variant="outline" onClick={save}><RefreshCw className="h-4 w-4 mr-1" /> Save</Button>
@@ -137,7 +238,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">SMTP server</CardTitle><CardDescription>Use your mailbox provider&apos;s SMTP details (e.g. Gmail app password, or your Namibian ISP/webmail SMTP).</CardDescription></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">SMTP server (optional)</CardTitle><CardDescription>Used only by the optional self-hosted server build. In this offline-first app the digest opens in your email client instead – fields are stored but not used.</CardDescription></CardHeader>
             <CardContent className="grid gap-3">
               {field('smtp_host', 'SMTP host', 'smtp.example.com.na')}
               <div className="grid grid-cols-2 gap-3">
@@ -168,7 +269,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
                         <TableCell className="text-sm">{fmtDateTime(e.createdAt)}</TableCell>
                         <TableCell className="text-sm">{e.to}</TableCell>
                         <TableCell className="text-sm max-w-72 truncate">{e.subject}</TableCell>
-                        <TableCell><Badge variant="outline" className={e.status === 'SENT' ? 'text-emerald-700' : 'text-red-600'}>{e.status}</Badge>{e.error && <span className="block text-xs text-muted-foreground max-w-56 truncate">{e.error}</span>}</TableCell>
+                        <TableCell><Badge variant="outline" className={['SENT', 'DIGEST_READY', 'NOTHING_DUE', 'MAILTO'].includes(e.status) ? 'text-emerald-700' : 'text-red-600'}>{e.status}</Badge>{e.error && <span className="block text-xs text-muted-foreground max-w-56 truncate">{e.error}</span>}</TableCell>
                       </TableRow>
                     ))}
                 </TableBody>
@@ -230,23 +331,52 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
               </ol>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="font-medium mb-1.5 flex items-center gap-2"><Settings2 className="h-4 w-4 text-emerald-600" /> Build a real APK file</p>
+              <p className="font-medium mb-1.5 flex items-center gap-2"><Settings2 className="h-4 w-4 text-emerald-600" /> Install the APK (built automatically)</p>
               <ol className="list-decimal ml-5 space-y-1 text-muted-foreground">
-                <li>Deploy the app to a public URL (e.g. Vercel, or your own server).</li>
-                <li>Go to <b>pwabuilder.com</b>, paste your URL and choose <b>Android package</b>.</li>
-                <li>Download the generated APK/AAB and install or publish it to Play Store.</li>
+                <li>On GitHub, open the repo → <b>Actions → Build Android APK</b>.</li>
+                <li>Open the latest run and download the <b>maintenance-manager-apk</b> artifact (app-debug.apk).</li>
+                <li>Copy it to the tablet and tap it to install (allow “install unknown apps” when asked).</li>
               </ol>
             </div>
             <div className="rounded-lg border p-3">
               <p className="font-medium mb-1.5 flex items-center gap-2"><Share2 className="h-4 w-4 text-emerald-600" /> Tips for tablet use</p>
               <ul className="list-disc ml-5 space-y-1 text-muted-foreground">
                 <li>Inspection forms and the signature pad are sized for tablet screens – sign with finger or stylus.</li>
-                <li>Reminders keep working while the app is installed, because they are checked on the server every 30 minutes.</li>
+                <li>Everything is stored offline on the device; with Firebase sync on, data reaches the office devices automatically when connectivity returns.</li>
               </ul>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={Boolean(seedOpen)} onOpenChange={(v) => !v && setSeedOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace all data with sample data?</AlertDialogTitle>
+            <AlertDialogDescription>This deletes everything currently stored on this device and loads the demo dataset. Download a backup first if you need the current data.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-amber-600 hover:bg-amber-700" onClick={runSeed}>Load sample data</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(importOpen)} onOpenChange={(v) => !v && setImportOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore a backup?</AlertDialogTitle>
+            <AlertDialogDescription>Collections present in the backup file replace what is stored on this device.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <div className="flex items-center gap-3">
+              <input type="file" accept="application/json,.json" onChange={(e) => setImportFile(e.target.files?.[0] ?? null)} className="text-xs" />
+              <AlertDialogAction disabled={!importFile || dataBusy} onClick={runImport}>Restore</AlertDialogAction>
+            </div>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Aircon model dialog */}
       <Dialog open={Boolean(airEdit)} onOpenChange={(v) => !v && setAirEdit(null)}>

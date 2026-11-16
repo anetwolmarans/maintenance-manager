@@ -22,10 +22,14 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
   const runReminders = async () => {
     setRunning(true)
     try {
-      const r = await apiSend<{ status: string; error?: string; sections: { title: string }[] }>('/api/reminders', 'POST', { trigger: 'manual from dashboard' })
-      if (r.status === 'SENT') toast.success(`Reminder email sent (${r.sections.length} section(s)).`)
-      else if (r.status === 'NOTHING_DUE') toast.success('Nothing due right now – nothing to remind about.')
-      else toast.warning(r.status === 'SKIPPED_NO_RECIPIENT' || r.status === 'SKIPPED_NO_SMTP' ? 'Email not sent: configure recipients/SMTP in Settings.' : r.error || r.status)
+      const r = await apiSend<{ status: string; error?: string; subject?: string; body?: string; sections: { title: string }[] }>('/api/reminders', 'POST', { trigger: 'manual from dashboard' })
+      if (r.status === 'DIGEST_READY') {
+        // no mail server in the offline-first app: copy the digest and hand it to the device email client
+        try { await navigator.clipboard.writeText(`${r.subject}\n\n${r.body}`) } catch { /* clipboard unavailable */ }
+        window.location.href = `mailto:?subject=${encodeURIComponent(r.subject || '')}&body=${encodeURIComponent((r.body || '').slice(0, 1800))}`
+        toast.success(`Reminder digest built (${r.sections.length} section(s)) – copied and opened in your email app.`)
+      } else if (r.status === 'NOTHING_DUE') toast.success('Nothing due right now – nothing to remind about.')
+      else toast.warning(r.status === 'SKIPPED_NO_RECIPIENT' ? 'Digest built, but no recipients set – add emails in Settings.' : r.error || r.status)
       load()
     } catch (e) { toast.error(e.message) } finally { setRunning(false) }
   }
@@ -46,19 +50,19 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
-            <Button size="sm" onClick={runReminders} disabled={running}><Send className="h-4 w-4 mr-1" /> Run reminders now</Button>
+            <Button size="sm" onClick={runReminders} disabled={running}><Send className="h-4 w-4 mr-1" /> Build digest & email</Button>
           </div>
         }
       />
 
-      {(!data.smtpConfigured || !data.reminderEmails) && (
+      {!data.reminderEmails && (
         <Alert className="mb-4 border-amber-300 bg-amber-50">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Email reminders not fully configured</AlertTitle>
+          <AlertTitle>Reminder recipients not set</AlertTitle>
           <AlertDescription>
-            {!data.reminderEmails ? 'Add recipient email addresses ' : 'Add your SMTP server details '}
-            in <button className="underline font-medium" onClick={() => onNavigate('settings')}>Settings</button> so maintenance and stock reminders can be emailed.
-            {data.lastReminderRun ? <> Last reminder check: {fmtDateTime(data.lastReminderRun)}.</> : null}
+            This offline-first app builds a reminder digest and hands it to your email app – no mail server needed.
+            Add recipient addresses in <button className="underline font-medium" onClick={() => onNavigate('settings')}>Settings</button> so the digest is addressed to the office.
+            {data.lastReminderRun ? <> Last digest built: {fmtDateTime(data.lastReminderRun)}.</> : null}
           </AlertDescription>
         </Alert>
       )}
