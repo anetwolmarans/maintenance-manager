@@ -3,35 +3,17 @@
 /**
  * Firebase Firestore sync bridge.
  *
- * The web-app config is hardcoded below on purpose: every build (GitHub
- * Pages and APK) ships with sync enabled and no device needs any setup.
- * A Firebase web API key is a public identifier by design – it selects the
- * project but does not grant access; data is protected by the Firestore
- * security rules (`request.auth != null` via anonymous sign-in).
+ * The Firebase app + web-app config live in `src/lib/auth.ts` (staff sign-in
+ * must run before sync starts, so auth owns app initialisation). Firestore
+ * listeners attach here after login; every write is stamped with the
+ * signed-in staff member (_uid / _by) for accountability.
  */
 
 import type { Collection, Doc } from '@/lib/store'
 import type { DocumentData } from 'firebase/firestore'
+import { ensureApp, currentStaff, FIREBASE_CONFIG } from '@/lib/auth'
 
-export type FirebaseConfig = {
-  apiKey: string
-  authDomain: string
-  projectId: string
-  storageBucket?: string
-  messagingSenderId?: string
-  appId: string
-}
-
-const FIREBASE_CONFIG: FirebaseConfig = {
-  apiKey: 'AIzaSyB-sI9oyzvJZdqGPLaOryhK9qX5MrF18_4',
-  authDomain: 'maintenance-manager-463fc.firebaseapp.com',
-  projectId: 'maintenance-manager-463fc',
-  storageBucket: 'maintenance-manager-463fc.firebasestorage.app',
-  messagingSenderId: '691671070047',
-  appId: '1:691671070047:web:b67031b54326798d2c32ea',
-}
-
-export function getConfig(): FirebaseConfig {
+export function getConfig() {
   return FIREBASE_CONFIG
 }
 
@@ -77,25 +59,11 @@ export function fsReplace(col: Collection, docs: Doc[]) {
 export function initSync(onData: Handler): boolean {
   if (bundle) return true
   if (typeof window === 'undefined') return false
-  const cfg = getConfig()
 
   void (async () => {
-    const { initializeApp, getApps } = await import('firebase/app')
     const fs = await import('firebase/firestore')
-    const app = getApps().length ? getApps()[0] : initializeApp(cfg)
-    // Sign in anonymously so the locked-down Firestore rules
-    // (`request.auth != null`) accept this device with no login screen.
-    // Requires Anonymous to be enabled once in Firebase console →
-    // Authentication → Sign-in method; until then sync stays offline.
-    try {
-      const { getAuth, signInAnonymously } = await import('firebase/auth')
-      await signInAnonymously(getAuth(app))
-    } catch (e) {
-      console.error(
-        '[sync] anonymous sign-in failed – enable it in Firebase console → Authentication → Sign-in method → Anonymous. Retrying on next reload.',
-        e,
-      )
-    }
+    // the app + staff session are guaranteed by the login gate before this runs
+    const app = await ensureApp()
     // Offline persistence + multi-tab support: Firestore queues writes while
     // offline and syncs when connectivity returns (yard Wi-Fi, tablet, APK).
     const db = fs.initializeFirestore(app, {
@@ -104,7 +72,12 @@ export function initSync(onData: Handler): boolean {
 
     const writeDoc = async (col: Collection, doc: Doc) => {
       try {
-        await fs.setDoc(fs.doc(db, col, doc.id), doc as unknown as DocumentData, { merge: true })
+        const s = currentStaff()
+        await fs.setDoc(
+          fs.doc(db, col, doc.id),
+          { ...doc, _uid: s?.uid ?? null, _by: s?.email ?? null } as unknown as DocumentData,
+          { merge: true },
+        )
       } catch (e) {
         console.error(`[sync] write ${col}/${doc.id} failed`, e)
       }
@@ -115,8 +88,11 @@ export function initSync(onData: Handler): boolean {
       fsDelete: (col, id) => { void fs.deleteDoc(fs.doc(db, col, id)).catch((e) => console.error(`[sync] delete ${col}/${id} failed`, e)) },
       fsReplace: (col, docs) => {
         void (async () => {
+          const s = currentStaff()
           const batch = fs.writeBatch(db)
-          for (const d of docs) batch.set(fs.doc(db, col, d.id), d as unknown as DocumentData, { merge: true })
+          for (const d of docs) {
+            batch.set(fs.doc(db, col, d.id), { ...d, _uid: s?.uid ?? null, _by: s?.email ?? null } as unknown as DocumentData, { merge: true })
+          }
           await batch.commit().catch((e) => console.error(`[sync] replace ${col} failed`, e))
         })()
       },
@@ -134,7 +110,7 @@ export function initSync(onData: Handler): boolean {
         (err) => console.error(`[sync] listener ${col} failed`, err),
       )
     }
-    console.info(`[sync] Firebase connected – project "${cfg.projectId}"`)
+    console.info(`[sync] Firebase connected – project "${FIREBASE_CONFIG.projectId}"`)
   })()
 
   return true

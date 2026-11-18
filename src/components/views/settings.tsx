@@ -144,7 +144,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">
-                No setup needed on any device – the Firebase configuration is built into the app. Changes made offline are queued and sync automatically when connectivity returns.
+                The Firebase configuration is built into the app – staff sign in with their staff ID and password (accounts are created in the Firebase console). Every synced record is stamped with who made it, and changes made offline are queued and sync automatically when connectivity returns.
               </p>
             </CardContent>
           </Card>

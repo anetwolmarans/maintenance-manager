@@ -4,9 +4,9 @@
  * Client-side data store.
  *
  * Replaces the old server API + SQLite: all collections live in memory,
- * are persisted to IndexedDB (instant, works offline), and — when a Firebase
- * config is provided — are mirrored to Firestore for real-time sync between
- * the web app on GitHub Pages and the Android APK.
+ * are persisted to IndexedDB (instant, works offline), and are mirrored to
+ * Firestore for real-time sync between the web app on GitHub Pages and the
+ * Android APK (after staff sign-in – see src/lib/auth.ts).
  *
  * Documents keep the same JSON shapes the old API returned (dates as ISO
  * strings), so the views need no changes.

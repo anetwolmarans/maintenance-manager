@@ -15,8 +15,8 @@ when you enable it.
 - Everything you enter is stored **on the device** (IndexedDB) – the app keeps
   working with no internet at all.
 - The same data is mirrored to **Firestore** (config is built into the app):
-  devices sync in real time, and Firestore's offline cache queues changes made
-  in the yard until connectivity returns.
+  after staff sign-in, devices sync in real time, and Firestore's offline
+  cache queues changes made in the yard until connectivity returns.
 - Backups are one click: **Settings → Data & sync → Download backup (JSON)**,
   restore on any other device with *Restore backup*.
 
@@ -85,19 +85,22 @@ Firestore with no setup (the Firebase config is part of the app code).
 
 ## Firebase sync (built in)
 
-The web-app config is hardcoded in `src/lib/firebase.ts`, so every build –
-GitHub Pages web app and APK – syncs automatically. Nothing to paste on any
-device; the only remaining one-time setup is in the Firebase console:
+The Firebase config is part of the app code (`src/lib/auth.ts`), so every
+build – GitHub Pages web app and APK – syncs automatically. Staff sign in
+with their staff ID and password (e.g. `juan` → `juan@mm.local`), and every
+synced record is stamped with who made it. One-time console setup:
 
 1. **Build → Firestore Database → Create database** (production mode is fine –
    see `firestore.rules` in this repo).
-2. **Authentication → Sign-in method → Anonymous → Enable** – the app signs in
-   anonymously, and the rules require `request.auth != null`.
-3. **Firestore → Rules** → paste `firestore.rules` → Publish.
+2. **Authentication → Sign-in method → Email/Password → Enable**.
+3. **Authentication → Users → Add user** for each staff member: email
+   `<staffid>@mm.local` (e.g. `juan@mm.local`), a password and optionally a
+   display name (shown in the app header).
+4. **Firestore → Rules** → paste `firestore.rules` → Publish.
 
 > **Security note:** a Firebase web API key is a public identifier, not a
-> secret – the shipped rules only accept authenticated (anonymous) clients,
-> so random visitors cannot read or write business data.
+> secret – the rules only accept signed-in staff, so visitors without an
+> account cannot read or write business data.
 
 ## Development
 

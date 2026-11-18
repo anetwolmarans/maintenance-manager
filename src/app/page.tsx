@@ -14,10 +14,12 @@ import { FleetView } from '@/components/views/fleet'
 import { DriverChecksView } from '@/components/views/driver-checks'
 import { ReportsView } from '@/components/views/reports'
 import { SettingsView } from '@/components/views/settings'
+import { LoginScreen, AuthSplash } from '@/components/login-screen'
+import { observeAuth, signOutStaff, type StaffUser } from '@/lib/auth'
 import {
   LayoutDashboard, Boxes, Wrench, ClipboardCheck, ShieldCheck, Package,
   Truck, FileDown, Settings as SettingsIcon, Menu, RefreshCw, Building2,
-  MapPin, CarFront,
+  MapPin, CarFront, LogOut,
 } from 'lucide-react'
 
 const NAV = [
@@ -41,14 +43,12 @@ export default function Home() {
   const [company, setCompany] = useState('Maintenance Manager')
   const [slogan, setSlogan] = useState('Prefab & container maintenance')
   const [navOpen, setNavOpen] = useState(false)
+  // undefined = saved session still being restored; null = signed out
+  const [staff, setStaff] = useState<StaffUser | null | undefined>(undefined)
+
+  useEffect(() => observeAuth(setStaff), [])
 
   useEffect(() => {
-    apiGet<{ settings: Record<string, string> }>('/api/settings')
-      .then((d) => {
-        if (d.settings.company_name) setCompany(d.settings.company_name)
-        if (d.settings.company_slogan) setSlogan(d.settings.company_slogan)
-      })
-      .catch(() => {})
     // register service worker for PWA install (relative path: works on GitHub
     // Pages sub-paths, localhost and inside the Capacitor APK)
     if ('serviceWorker' in navigator) {
@@ -56,8 +56,24 @@ export default function Home() {
     }
   }, [])
 
+  useEffect(() => {
+    // after staff sign-in: load company branding (also triggers store init +
+    // Firestore sync, which must only start once a session exists)
+    if (!staff) return
+    apiGet<{ settings: Record<string, string> }>('/api/settings')
+      .then((d) => {
+        if (d.settings.company_name) setCompany(d.settings.company_name)
+        if (d.settings.company_slogan) setSlogan(d.settings.company_slogan)
+      })
+      .catch(() => {})
+  }, [staff?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const go = (v: string) => { setView(v); setNavOpen(false) }
   const refresh = () => setRefreshKey((k) => k + 1)
+  const signOut = () => { void signOutStaff().catch(() => {}) }
+
+  if (staff === undefined) return <AuthSplash />
+  if (!staff) return <LoginScreen />
 
   const renderBrand = () => (
     <div className="flex items-center gap-3">
@@ -161,6 +177,9 @@ export default function Home() {
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={refresh} aria-label="Refresh data">
               <RefreshCw className="h-4 w-4" />
             </Button>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={signOut} aria-label="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
           </header>
 
           {/* Desktop top bar */}
@@ -173,8 +192,14 @@ export default function Home() {
               <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground rounded-full border px-3 py-1.5 bg-card/60">
                 <MapPin className="h-3 w-3 text-emerald-600" /> Windhoek, Namibia
               </span>
+              <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground rounded-full border px-3 py-1.5 bg-card/60" title={staff.email}>
+                {staff.name}
+              </span>
               <Button variant="outline" size="sm" className="rounded-lg bg-card" onClick={refresh}>
                 <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-600" onClick={signOut} aria-label="Sign out" title={`Sign out (${staff.email})`}>
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>

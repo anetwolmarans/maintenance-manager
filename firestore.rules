@@ -5,13 +5,12 @@ rules_version = '2';
 // Data is stored in top-level collections (units, inspections, fleetVehicles,
 // stockItems, suppliers, maintenance*, emailLogs, settings, …).
 //
-// The app signs in with Firebase **Anonymous Auth** on startup, so every
-// device gets request.auth without any login screen. One-time setup in the
-// Firebase console: Authentication → Sign-in method → Anonymous → Enable.
-// Until that toggle is on, the app cannot sync.
+// Staff sign in with Firebase **Email/Password** accounts (created by the
+// owner in Firebase console → Authentication → Users, e.g. juan@mm.local).
+// The app signs in before sync starts, so every device gets request.auth.
 //
 // Because the web-app config ships inside the public bundle, these rules do
-// NOT allow unrestricted access: only authenticated clients may read/write.
+// NOT allow unrestricted access: only signed-in staff may read/write.
 // (Firebase web API keys are public identifiers, not secrets.)
 //
 // Deploy: firebase deploy --only firestore:rules
