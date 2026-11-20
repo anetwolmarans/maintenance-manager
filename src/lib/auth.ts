@@ -15,12 +15,12 @@
 export type StaffUser = { uid: string; email: string; name: string }
 
 export const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyB-sI9oyzvJZdqGPLaOryhK9qX5MrF18_4',
-  authDomain: 'maintenance-manager-463fc.firebaseapp.com',
-  projectId: 'maintenance-manager-463fc',
-  storageBucket: 'maintenance-manager-463fc.firebasestorage.app',
-  messagingSenderId: '691671070047',
-  appId: '1:691671070047:web:b67031b54326798d2c32ea',
+  apiKey: 'AIzaSyDdPMrA_Xn6jXKN2uJHqYoQM0HXyr-zi1s',
+  authDomain: 'mm-namibia.firebaseapp.com',
+  projectId: 'mm-namibia',
+  storageBucket: 'mm-namibia.firebasestorage.app',
+  messagingSenderId: '261575975549',
+  appId: '1:261575975549:web:f49becc5aed725366c0714',
 }
 
 /** Staff IDs map to `<id>@mm.local` accounts unless a full email is typed. */
