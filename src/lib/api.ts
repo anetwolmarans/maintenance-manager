@@ -8,6 +8,13 @@
  */
 
 import { storeReady, list, get, upsert, remove, uid, type Doc, type Collection } from '@/lib/store'
+import { defaultCheckTemplates } from '@/lib/sample-data'
+
+/** Fresh database: seed the built-in fleet / driver-check templates once so walk-around checks work out of the box. */
+async function ensureCheckTemplates() {
+  const present = (cat: string) => list('inspectionTemplates').some((t) => t.category === cat)
+  for (const t of defaultCheckTemplates()) if (!present(String(t.category))) await upsert('inspectionTemplates', t)
+}
 
 // ---------- helpers (used by views, kept exactly as before) ----------
 
@@ -259,6 +266,7 @@ export async function apiGet<T>(url: string): Promise<T> {
   }
 
   if (path === '/api/qcp') {
+    await ensureCheckTemplates()
     return list('inspectionTemplates')
       .sort((a, b) => String(a.category).localeCompare(String(b.category)) || num(a.stageOrder) - num(b.stageOrder)) as T
   }

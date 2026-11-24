@@ -21,6 +21,16 @@ const tpl = (name: string, category: string, stageOrder: number, description: st
   active: true,
 })
 
+/**
+ * The two built-in walk-around templates a fresh database needs: there is no
+ * UI that creates DRIVER_CHECK / FLEET templates (the QCP view only manages
+ * QCP stages), so the api layer seeds these on first use.
+ */
+export const defaultCheckTemplates = (): Doc[] => [
+  tpl('Fleet daily / weekly inspection', 'FLEET', 0, 'Driver or supervisor walk-around.', ['Tyres & pressure OK', 'Lights & indicators OK', 'Brakes OK', 'Fluids (oil / coolant / brake) OK', 'Battery secure', 'Body / canopy damage check', 'Load bed clean & secure', 'Spare wheel & jack present', 'Licence disc valid', 'Fire extinguisher present', 'Odometer reading noted']),
+  tpl('Driver daily walk-around check', 'DRIVER_CHECK', 0, 'Quick pre-trip check done by the driver – any FAIL flags a defect for the office.', ['Licence disc & papers valid', 'Tyres (condition & pressure) incl. spare', 'Lights, indicators & hazard OK', 'Brakes & handbrake OK', 'Oil / coolant / washer fluid OK', 'Battery secure, no corrosion', 'Windscreen, mirrors & wipers OK', 'Horn working', 'Seatbelts intact', 'Load / canopy closed & strapped', 'Fire extinguisher present', 'No new dents, scratches or leaks', 'Cab clean, tools & jack on board', 'Odometer reading noted']),
+]
+
 /** Wipe everything and load the sample dataset. */
 export async function loadSampleData(): Promise<void> {
   await wipeAll()
