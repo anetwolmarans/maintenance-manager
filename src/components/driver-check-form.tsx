@@ -99,7 +99,16 @@ export function DriverCheckForm({ open, onOpenChange, vehicles, templates, fixed
           <div>
             <Label>Your vehicle *</Label>
             <Select value={vehicleId} onValueChange={(v) => { setVehicleId(v); setOdometer('') }}>
-              <SelectTrigger className="h-11 [&>span]:block [&>span]:truncate"><SelectValue placeholder="Choose vehicle" /></SelectTrigger>
+              <SelectTrigger className="h-auto min-h-11 py-1.5 [&>span]:block [&>span]:w-full">
+                {vehicle ? (
+                  <span className="block min-w-0 text-left">
+                    <span className="block truncate text-sm font-medium">{vehicle.regNo} – {vehicle.make} {vehicle.model}</span>
+                    {vehicle.assignedTo && <span className="block truncate text-xs text-muted-foreground">Assigned to: {vehicle.assignedTo}</span>}
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Choose vehicle" />
+                )}
+              </SelectTrigger>
               <SelectContent>{vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.regNo} – {v.make} {v.model}{v.assignedTo ? ` (${v.assignedTo})` : ''}</SelectItem>)}</SelectContent>
             </Select>
             {vehicle && <p className="mt-1 text-xs text-muted-foreground">Odometer last recorded: {vehicle.odometerKm.toLocaleString('en')} km</p>}
