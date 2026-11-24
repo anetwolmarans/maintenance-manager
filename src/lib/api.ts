@@ -10,10 +10,14 @@
 import { storeReady, list, get, upsert, remove, uid, type Doc, type Collection } from '@/lib/store'
 import { defaultCheckTemplates } from '@/lib/sample-data'
 
-/** Fresh database: seed the built-in fleet / driver-check templates once so walk-around checks work out of the box. */
+/** Fresh database: seed the built-in fleet / driver-check templates once so walk-around checks work out of the box.
+ *  Also upgrades an existing built-in template when its checklist changes between app versions (items only). */
 async function ensureCheckTemplates() {
-  const present = (cat: string) => list('inspectionTemplates').some((t) => t.category === cat)
-  for (const t of defaultCheckTemplates()) if (!present(String(t.category))) await upsert('inspectionTemplates', t)
+  for (const t of defaultCheckTemplates()) {
+    const cur = list('inspectionTemplates').find((x) => x.category === t.category)
+    if (!cur) await upsert('inspectionTemplates', t)
+    else if (cur.items !== t.items) await upsert('inspectionTemplates', { ...cur, items: t.items })
+  }
 }
 
 // ---------- helpers (used by views, kept exactly as before) ----------

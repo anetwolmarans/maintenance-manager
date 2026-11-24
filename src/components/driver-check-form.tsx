@@ -58,15 +58,16 @@ export function DriverCheckForm({ open, onOpenChange, vehicles, templates, fixed
 
   const setResult = (id: string, result: 'PASS' | 'FAIL' | 'N/A') => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, result } : x)))
   const setNotes = (id: string, notes: string) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, notes } : x)))
+  const setValue = (id: string, value: string) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, value } : x)))
 
   const failCount = items.filter((x) => x.result === 'FAIL').length
-  const marked = items.filter((x) => x.result).length
+  const marked = items.filter((x) => (x.type === 'date' ? x.value : x.result)).length
   const vehicle = vehicles.find((v) => v.id === vehicleId)
 
   const save = async () => {
     if (!driver.trim()) { toast.error('Driver name is required'); return }
     if (!vehicleId) { toast.error('Choose your vehicle'); return }
-    if (items.some((x) => !x.result)) { toast.error('Answer every item – PASS, FAIL or N/A'); return }
+    if (items.some((x) => (x.type === 'date' ? !x.value : !x.result))) { toast.error('Answer every item – PASS, FAIL, N/A or the expiry date'); return }
     if (!signature) { toast.error('Signature required – sign on the pad'); return }
     setSaving(true)
     try {
@@ -123,16 +124,25 @@ export function DriverCheckForm({ open, onOpenChange, vehicles, templates, fixed
           <div className="rounded-lg border divide-y max-h-[46vh] overflow-y-auto">
             {items.map((x, n) => (
               <div key={x.id} className="p-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm flex-1">{n + 1}. {x.text}</p>
-                  <div className="flex gap-1 shrink-0">
-                    {(['PASS', 'FAIL', 'N/A'] as const).map((r) => (
-                      <button key={r} type="button" onClick={() => setResult(x.id, r)} className={RESULT_BTN(x.result === r, r)}>{r}</button>
-                    ))}
+                {x.type === 'date' ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm flex-1">{n + 1}. {x.text}</p>
+                    <Input type="date" className="h-9 w-36 shrink-0 text-sm" value={x.value || ''} onChange={(e) => setValue(x.id, e.target.value)} />
                   </div>
-                </div>
-                {x.result && x.result !== 'PASS' && (
-                  <Input className="mt-2 h-9 text-sm" placeholder={x.result === 'FAIL' ? 'What is wrong? (needed for the workshop)' : 'Note (optional)'} value={x.notes || ''} onChange={(e) => setNotes(x.id, e.target.value)} />
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm flex-1">{n + 1}. {x.text}</p>
+                      <div className="flex gap-1 shrink-0">
+                        {(['PASS', 'FAIL', 'N/A'] as const).map((r) => (
+                          <button key={r} type="button" onClick={() => setResult(x.id, r)} className={RESULT_BTN(x.result === r, r)}>{r}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {x.result && x.result !== 'PASS' && (
+                      <Input className="mt-2 h-9 text-sm" placeholder={x.result === 'FAIL' ? 'What is wrong? (needed for the workshop)' : 'Note (optional)'} value={x.notes || ''} onChange={(e) => setNotes(x.id, e.target.value)} />
+                    )}
+                  </>
                 )}
               </div>
             ))}

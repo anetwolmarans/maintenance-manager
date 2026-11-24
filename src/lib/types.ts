@@ -69,6 +69,9 @@ export interface MaintenanceType {
 export interface InspectionItem {
   id: string
   text: string
+  /** 'date' items capture a date (value) instead of PASS/FAIL, e.g. licence disc expiry */
+  type?: 'date'
+  value?: string
   result?: 'PASS' | 'FAIL' | 'N/A'
   notes?: string
 }

@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { Plus, CarFront, FileDown, Trash2, Eye, AlertTriangle, CircleCheck, PenLine } from 'lucide-react'
 
-interface ParsedItem { text?: string; result?: string; notes?: string }
+interface ParsedItem { text?: string; result?: string; notes?: string; type?: string; value?: string }
 
 export function DriverChecksView({ refreshKey }: { refreshKey: number }) {
   const [checks, setChecks] = useState<Inspection[]>([])
@@ -165,8 +165,8 @@ export function DriverChecksView({ refreshKey }: { refreshKey: number }) {
               <div className="rounded-lg border divide-y max-h-72 overflow-y-auto">
                 {itemsOf(view).map((x, n) => (
                   <div key={n} className="flex items-center justify-between gap-2 p-2 text-sm">
-                    <span className="flex-1">{n + 1}. {x.text}{x.notes ? <span className="block text-xs text-muted-foreground">{x.notes}</span> : null}</span>
-                    <span className={`text-xs font-medium ${x.result === 'PASS' ? 'text-emerald-700' : x.result === 'FAIL' ? 'text-red-600' : 'text-slate-500'}`}>{x.result || '-'}</span>
+                    <span className="flex-1">{n + 1}. {x.text}{x.type === 'date' && x.value ? <span className="block text-xs text-muted-foreground">Expires: {fmtDate(x.value)}</span> : x.notes ? <span className="block text-xs text-muted-foreground">{x.notes}</span> : null}</span>
+                    <span className={`text-xs font-medium ${x.result === 'PASS' ? 'text-emerald-700' : x.result === 'FAIL' ? 'text-red-600' : 'text-slate-500'}`}>{x.type === 'date' ? (x.value ? fmtDate(x.value) : '-') : (x.result || '-')}</span>
                   </div>
                 ))}
               </div>

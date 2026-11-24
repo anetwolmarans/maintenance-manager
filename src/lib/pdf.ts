@@ -92,9 +92,9 @@ export function downloadInspectionSheet(insp: InspectionPdfData, company: string
     ] : []),
   ] as Row[][], y)
 
-  const items = JSON.parse(insp.items || '[]') as { text: string; result: string; notes?: string }[]
+  const items = JSON.parse(insp.items || '[]') as { text: string; result: string; notes?: string; type?: string; value?: string }[]
   y = table(doc, ['#', 'Check item', 'Result', 'Notes'],
-    items.map((it, i) => ({ n: String(i + 1), t: it.text, r: it.result || '-', nt: it.notes || '' })) as Row[][],
+    items.map((it, i) => ({ n: String(i + 1), t: it.text, r: it.type === 'date' ? (it.value || '-') : (it.result || '-'), nt: it.notes || '' })) as Row[][],
     y + 4,
     { didParseCell: (d: { column: { index: number }; cell: { styles: Record<string, unknown> } }) => {
       if (d.column.index === 2) {
