@@ -95,11 +95,11 @@ export function DriverCheckForm({ open, onOpenChange, vehicles, templates, fixed
           <DialogTitle className="flex items-center gap-2"><CarFront className="h-5 w-5 text-teal-700" /> Driver pre-trip check</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <Label>Your vehicle *</Label>
             <Select value={vehicleId} onValueChange={(v) => { setVehicleId(v); setOdometer('') }}>
-              <SelectTrigger className="h-11"><SelectValue placeholder="Choose vehicle" /></SelectTrigger>
+              <SelectTrigger className="h-11 [&>span]:block [&>span]:truncate"><SelectValue placeholder="Choose vehicle" /></SelectTrigger>
               <SelectContent>{vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.regNo} – {v.make} {v.model}{v.assignedTo ? ` (${v.assignedTo})` : ''}</SelectItem>)}</SelectContent>
             </Select>
             {vehicle && <p className="mt-1 text-xs text-muted-foreground">Odometer last recorded: {vehicle.odometerKm.toLocaleString('en')} km</p>}
