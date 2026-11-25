@@ -16,7 +16,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, FileDown, PackageCheck, Mail } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FileDown, PackageCheck, Mail, Upload } from 'lucide-react'
+import { ImportDialog } from '@/components/import-dialog'
+import { csvNum } from '@/lib/csv'
 
 const emptyItem = { id: '', name: '', sku: '', category: 'General', unit: 'ea', qtyOnHand: 0, reorderPoint: 0, reorderQty: 0, unitCost: 0, location: 'Yard store', supplierId: '', notes: '' }
 const emptySup = { id: '', name: '', contactName: '', email: '', phone: '', leadTimeDays: 14, notes: '' }
@@ -28,6 +30,7 @@ export function StockView({ refreshKey, onNavigate }: { refreshKey: number; onNa
   const [q, setQ] = useState('')
   const [itemEdit, setItemEdit] = useState<typeof emptyItem | null>(null)
   const [supEdit, setSupEdit] = useState<typeof emptySup | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [bomAdd, setBomAdd] = useState<{ stockItemId: string; qtyPerUnit: number } | null>(null)
   const [bomEdit, setBomEdit] = useState<BomItem | null>(null)
   const [deleteItem, setDeleteItem] = useState<{ id: string; entity?: string } | null>(null)
@@ -107,10 +110,54 @@ export function StockView({ refreshKey, onNavigate }: { refreshKey: number; onNa
         )}
       </div>
 
+      {tab === 'suppliers' ? (
+        <ImportDialog
+          open={importOpen} onOpenChange={setImportOpen} title="Import suppliers (CSV)"
+          config={{
+            filename: 'suppliers-import-template.csv',
+            headers: ['Name', 'Contact name', 'Email', 'Phone', 'Lead time days', 'Notes'],
+            example: ['Build It Wholesale', 'S. Shipanga', 'sales@buildit.na', '+264 61 123 456', '7', ''],
+            required: ['Name'],
+          }}
+          importer={async (r) => {
+            if (!r['Name']) throw new Error('Name is required')
+            await apiSend('/api/suppliers', 'POST', { name: r['Name'], contactName: r['Contact name'], email: r['Email'], phone: r['Phone'], leadTimeDays: csvNum(r['Lead time days']), notes: r['Notes'] })
+          }}
+          onDone={load}
+        />
+      ) : (
+        <ImportDialog
+          open={importOpen} onOpenChange={setImportOpen} title="Import stock items (CSV)"
+          config={{
+            filename: 'stock-items-import-template.csv',
+            headers: ['Name', 'SKU', 'Category', 'Unit', 'Qty on hand', 'Reorder point', 'Reorder qty', 'Unit cost', 'Location', 'Supplier', 'Notes'],
+            example: ['PVC pipe 32mm', 'PLB-032', 'Plumbing', 'ea', '25', '10', '20', '45.50', 'Yard store', 'Build It Wholesale', ''],
+            required: ['Name'],
+          }}
+          importer={async (r) => {
+            if (!r['Name']) throw new Error('Name is required')
+            let supplierId = ''
+            if (r['Supplier']) {
+              const sups = await apiGet<{ id: string; name: string }[]>('/api/suppliers')
+              const s = sups.find((x) => (x.name || '').trim().toLowerCase() === r['Supplier'].trim().toLowerCase())
+              if (!s) throw new Error(`Supplier "${r['Supplier']}" not found – add it on the Suppliers tab first (or import suppliers, then items), or leave the column blank`)
+              supplierId = s.id
+            }
+            await apiSend('/api/stock', 'POST', {
+              name: r['Name'], sku: r['SKU'], category: r['Category'] || undefined, unit: r['Unit'] || undefined,
+              qtyOnHand: csvNum(r['Qty on hand']), reorderPoint: csvNum(r['Reorder point']), reorderQty: csvNum(r['Reorder qty']),
+              unitCost: csvNum(r['Unit cost']), location: r['Location'], supplierId, notes: r['Notes'],
+            })
+          }}
+          onDone={load}
+        />
+      )}
+
       {tab === 'items' && (
         <Card>
           <CardContent className="px-2 sm:px-4 py-2">
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-end gap-2 mb-2">
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
               <Button size="sm" onClick={() => setItemEdit({ ...emptyItem })}><Plus className="h-4 w-4 mr-1" /> Add item</Button>
             </div>
             <div className="overflow-x-auto">
@@ -223,7 +270,8 @@ export function StockView({ refreshKey, onNavigate }: { refreshKey: number; onNa
       {tab === 'suppliers' && data && (
         <Card>
           <CardContent className="px-4 py-4">
-            <div className="flex justify-end mb-3">
+            <div className="flex justify-end gap-2 mb-3">
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
               <Button size="sm" onClick={() => setSupEdit({ ...emptySup })}><Plus className="h-4 w-4 mr-1" /> Add supplier</Button>
             </div>
             <div className="grid gap-3 md:grid-cols-2">

@@ -16,6 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, MailCheck, Smartphone, Download, Share2, Settings2, Save, Send, RefreshCw, Database, Upload, Cloud } from 'lucide-react'
+import { ImportDialog } from '@/components/import-dialog'
+import { csvNum } from '@/lib/csv'
 import { exportAll, importAll } from '@/lib/store'
 import { loadSampleData } from '@/lib/sample-data'
 import { projectId } from '@/lib/firebase'
@@ -27,6 +29,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([])
   const [aircons, setAircons] = useState<AirconModel[]>([])
   const [airEdit, setAirEdit] = useState<typeof emptyAir | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [tab, setTab] = useState('data')
@@ -257,9 +260,30 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
               <CardTitle className="text-base">Aircon model catalogue</CardTitle>
               <CardDescription>Models commonly available in Namibia with their service intervals. Sources: Pupkewitz Megabuild (shop.megabuild.com.na), Gree Namibia / Cold Air Technologies (gree-namibia.com), GMC Airconditioning Namibia. Intervals: 6–12 months for full service in dusty conditions, filter clean every 30–60 days. Edit to match your own units.</CardDescription>
             </div>
-            <Button size="sm" className="shrink-0 self-start w-auto" onClick={() => setAirEdit({ ...emptyAir })}><Plus className="h-4 w-4 mr-1" /> Add model</Button>
+            <div className="flex gap-2 shrink-0 self-start">
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
+              <Button size="sm" onClick={() => setAirEdit({ ...emptyAir })}><Plus className="h-4 w-4 mr-1" /> Add model</Button>
+            </div>
           </CardHeader>
           <CardContent className="px-2 sm:px-4">
+            <ImportDialog
+              open={importOpen} onOpenChange={setImportOpen} title="Import aircon models (CSV)"
+              config={{
+                filename: 'aircon-models-import-template.csv',
+                headers: ['Brand', 'Model', 'Type', 'BTU', 'Service interval months', 'Filter clean months', 'Supplier', 'Source', 'Notes'],
+                example: ['Samsung', 'AR12TVHQ', 'Split inverter', '12000', '6', '3', 'Pupkewitz Megabuild', 'shop.megabuild.com.na', ''],
+                required: ['Brand', 'Model'],
+              }}
+              importer={async (r) => {
+                if (!r['Brand'] || !r['Model']) throw new Error('Brand and Model are required')
+                await apiSend('/api/aircons', 'POST', {
+                  brand: r['Brand'], model: r['Model'], type: r['Type'] || undefined, btu: csvNum(r['BTU']),
+                  serviceIntervalMonths: csvNum(r['Service interval months']), filterCleanMonths: csvNum(r['Filter clean months']),
+                  supplier: r['Supplier'], source: r['Source'], notes: r['Notes'],
+                })
+              }}
+              onDone={load}
+            />
             <Table>
               <TableHeader><TableRow><TableHead>Brand</TableHead><TableHead>Model</TableHead><TableHead className="hidden md:table-cell">Type</TableHead><TableHead>BTU</TableHead><TableHead>Service every</TableHead><TableHead className="hidden sm:table-cell">Filter clean</TableHead><TableHead className="hidden lg:table-cell">Source</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
               <TableBody>

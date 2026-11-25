@@ -17,7 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Boxes, Plus, Search, Pencil, Trash2, Eye, History as HistoryIcon, ArrowUpRight, ArrowDownLeft, FileDown, Wrench, Package } from 'lucide-react'
+import { Boxes, Plus, Search, Pencil, Trash2, Eye, History as HistoryIcon, ArrowUpRight, ArrowDownLeft, FileDown, Wrench, Package, Upload } from 'lucide-react'
+import { ImportDialog } from '@/components/import-dialog'
 
 const emptyUnit = {
   id: '', code: '', serial: '', type: 'CONTAINER', size: '', description: '', status: 'IN_STOCK',
@@ -34,6 +35,7 @@ export function UnitsView({ refreshKey, onNavigate }: { refreshKey: number; onNa
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState<typeof emptyUnit>(emptyUnit)
+  const [importOpen, setImportOpen] = useState(false)
   const [detail, setDetail] = useState<Unit | null>(null)
   const [detailTab, setDetailTab] = useState('overview')
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -141,7 +143,32 @@ export function UnitsView({ refreshKey, onNavigate }: { refreshKey: number; onNa
       <ViewTitle
         title="Units register & stock take"
         subtitle="Every container / prefab unit, its build team, contents and history"
-        action={<Button size="sm" onClick={() => { setForm({ ...emptyUnit }); setEditOpen(true) }}><Plus className="h-4 w-4 mr-1" /> Add unit</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
+            <Button size="sm" onClick={() => { setForm({ ...emptyUnit }); setEditOpen(true) }}><Plus className="h-4 w-4 mr-1" /> Add unit</Button>
+          </div>
+        }
+      />
+
+      <ImportDialog
+        open={importOpen} onOpenChange={setImportOpen} title="Import units (CSV)"
+        config={{
+          filename: 'units-import-template.csv',
+          headers: ['Code', 'Serial', 'Type', 'Size', 'Description', 'Status', 'Build date', 'Builder', 'Electrician', 'Plumber', 'Painter', 'Glazier', 'Roofer', 'Other trade', 'Notes'],
+          example: ['C-0142', 'SN00142', 'CONTAINER', '6m', 'Site office container', 'IN_STOCK', '2026-01-15', 'Walvis Steelworks', 'J. Nangolo', '', '', '', '', '', 'Delivered to yard 3'],
+          required: ['Code'],
+        }}
+        importer={async (r) => {
+          if (!r['Code']) throw new Error('Code is required')
+          await apiSend('/api/units', 'POST', {
+            code: r['Code'], serial: r['Serial'], type: r['Type'] || undefined, size: r['Size'],
+            description: r['Description'], status: r['Status'] || undefined, buildDate: r['Build date'],
+            builder: r['Builder'], electrician: r['Electrician'], plumber: r['Plumber'], painter: r['Painter'],
+            glazier: r['Glazier'], roofer: r['Roofer'], otherTrade: r['Other trade'], notes: r['Notes'],
+          })
+        }}
+        onDone={load}
       />
 
       <div className="flex flex-wrap gap-2 mb-4">

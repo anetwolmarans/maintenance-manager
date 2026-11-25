@@ -19,7 +19,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, FileDown, Truck, Wrench, ClipboardCheck, Eye, Gauge, CarFront } from 'lucide-react'
+import { Plus, Pencil, Trash2, FileDown, Truck, Wrench, ClipboardCheck, Eye, Gauge, CarFront, Upload } from 'lucide-react'
+import { ImportDialog } from '@/components/import-dialog'
+import { csvNum } from '@/lib/csv'
 
 const emptyVeh = { id: '', regNo: '', make: '', model: '', type: 'LDV', year: '', odometerKm: 0, status: 'ACTIVE', assignedTo: '', serviceIntervalKm: '', serviceIntervalMonths: '', lastServiceDate: '', lastServiceOdometerKm: '', notes: '' }
 const emptyRec = { vehicleId: '', date: todayInput(), type: 'SERVICE', description: '', odometerKm: '', cost: '', workshop: '', performedBy: '', nextServiceDate: '', nextServiceKm: '' }
@@ -30,6 +32,7 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState<typeof emptyVeh>(emptyVeh)
+  const [importOpen, setImportOpen] = useState(false)
   const [detail, setDetail] = useState<FleetVehicle | null>(null)
   const [detailTab, setDetailTab] = useState('overview')
   const [recOpen, setRecOpen] = useState(false)
@@ -135,11 +138,33 @@ export function FleetView({ refreshKey }: { refreshKey: number }) {
         subtitle="Vehicles, services by km or months, repairs, inspections and running costs"
         action={
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
             <Button variant="outline" size="sm" onClick={() => downloadFleetReport(vehicles as never, 'Maintenance')}><FileDown className="h-4 w-4 mr-1" /> Fleet report (PDF)</Button>
             <Button size="sm" onClick={() => setInspOpen(true)}><ClipboardCheck className="h-4 w-4 mr-1" /> Fleet inspection</Button>
             <Button size="sm" variant="outline" onClick={() => { setForm({ ...emptyVeh }); setEditOpen(true) }}><Plus className="h-4 w-4 mr-1" /> Add vehicle</Button>
           </div>
         }
+      />
+
+      <ImportDialog
+        open={importOpen} onOpenChange={setImportOpen} title="Import fleet vehicles (CSV)"
+        config={{
+          filename: 'fleet-vehicles-import-template.csv',
+          headers: ['Reg no', 'Year', 'Make', 'Model', 'Assigned to', 'Status', 'Odometer km', 'Service interval km', 'Service interval months', 'Last service date', 'Notes'],
+          example: ['N 12345 W', '2021', 'Toyota', 'Hilux', 'Anet Wolmarans', 'ACTIVE', '152369', '10000', '12', '2026-06-02', ''],
+          required: ['Reg no', 'Make'],
+        }}
+        importer={async (r) => {
+          if (!r['Reg no']) throw new Error('Reg no is required')
+          if (!r['Make']) throw new Error('Make is required')
+          await apiSend('/api/fleet', 'POST', {
+            regNo: r['Reg no'], year: csvNum(r['Year']), make: r['Make'], model: r['Model'],
+            assignedTo: r['Assigned to'], status: r['Status'] || undefined, odometerKm: csvNum(r['Odometer km']),
+            serviceIntervalKm: csvNum(r['Service interval km']), serviceIntervalMonths: csvNum(r['Service interval months']),
+            lastServiceDate: r['Last service date'], notes: r['Notes'],
+          })
+        }}
+        onDone={load}
       />
 
       {reminderList.length > 0 && (
