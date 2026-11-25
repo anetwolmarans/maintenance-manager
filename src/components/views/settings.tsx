@@ -29,7 +29,7 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([])
   const [aircons, setAircons] = useState<AirconModel[]>([])
   const [airEdit, setAirEdit] = useState<typeof emptyAir | null>(null)
-  const [importOpen, setImportOpen] = useState(false)
+  const [airImportOpen, setAirImportOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [tab, setTab] = useState('data')
@@ -261,13 +261,13 @@ export function SettingsView({ refreshKey }: { refreshKey: number }) {
               <CardDescription>Models commonly available in Namibia with their service intervals. Sources: Pupkewitz Megabuild (shop.megabuild.com.na), Gree Namibia / Cold Air Technologies (gree-namibia.com), GMC Airconditioning Namibia. Intervals: 6–12 months for full service in dusty conditions, filter clean every 30–60 days. Edit to match your own units.</CardDescription>
             </div>
             <div className="flex gap-2 shrink-0 self-start">
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
+              <Button variant="outline" size="sm" onClick={() => setAirImportOpen(true)}><Upload className="h-4 w-4 mr-1" /> Import</Button>
               <Button size="sm" onClick={() => setAirEdit({ ...emptyAir })}><Plus className="h-4 w-4 mr-1" /> Add model</Button>
             </div>
           </CardHeader>
           <CardContent className="px-2 sm:px-4">
             <ImportDialog
-              open={importOpen} onOpenChange={setImportOpen} title="Import aircon models (CSV)"
+              open={airImportOpen} onOpenChange={setAirImportOpen} title="Import aircon models (CSV)"
               config={{
                 filename: 'aircon-models-import-template.csv',
                 headers: ['Brand', 'Model', 'Type', 'BTU', 'Service interval months', 'Filter clean months', 'Supplier', 'Source', 'Notes'],
