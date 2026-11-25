@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +10,13 @@ import { signInStaff } from '@/lib/auth'
 
 /** Full-screen splash while a saved session is restored. */
 export function AuthSplash() {
+  // if restoring hangs (e.g. first run with no internet), tell the user instead
+  // of spinning forever – that screen looks like "the app is not opening"
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 12000)
+    return () => clearTimeout(t)
+  }, [])
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-[#0c231d] via-[#0a1d18] to-[#071410]">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-950/50 ring-1 ring-inset ring-white/25">
@@ -17,6 +24,11 @@ export function AuthSplash() {
       </div>
       <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
       <p className="text-xs text-slate-400">Restoring session…</p>
+      {slow && (
+        <p className="max-w-xs text-center text-xs text-amber-300/90">
+          This is taking longer than usual. Connect to the internet once (the first sign-in on a device needs it) and restart the app if this screen does not clear.
+        </p>
+      )}
     </div>
   )
 }

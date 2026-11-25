@@ -60,15 +60,24 @@ export function initSync(onData: Handler): boolean {
   if (bundle) return true
   if (typeof window === 'undefined') return false
 
-  void (async () => {
+  const start = async () => {
     const fs = await import('firebase/firestore')
     // the app + staff session are guaranteed by the login gate before this runs
     const app = await ensureApp()
     // Offline persistence + multi-tab support: Firestore queues writes while
     // offline and syncs when connectivity returns (yard Wi-Fi, tablet, APK).
-    const db = fs.initializeFirestore(app, {
-      localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
-    })
+    // Some Android WebViews / private-mode browsers refuse IndexedDB – fall
+    // back to the in-memory cache so the app still opens (writes just don't
+    // queue while offline on those devices).
+    let db: import('firebase/firestore').Firestore
+    try {
+      db = fs.initializeFirestore(app, {
+        localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
+      })
+    } catch (e) {
+      console.error('[sync] persistent cache unavailable – using memory cache', e)
+      db = fs.getFirestore(app)
+    }
 
     const writeDoc = async (col: Collection, doc: Doc) => {
       try {
@@ -111,7 +120,9 @@ export function initSync(onData: Handler): boolean {
       )
     }
     console.info(`[sync] Firebase connected – project "${FIREBASE_CONFIG.projectId}"`)
-  })()
+  }
+  // sync must never take the app down with it – log and continue on-device
+  void start().catch((e) => console.error('[sync] Firestore sync failed to start – app keeps working on-device only', e))
 
   return true
 }

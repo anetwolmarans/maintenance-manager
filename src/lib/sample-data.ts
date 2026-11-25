@@ -31,7 +31,7 @@ export const defaultCheckTemplates = (): Doc[] => {
   const driver = tpl('Driver daily walk-around check', 'DRIVER_CHECK', 0, 'Quick pre-trip check done by the driver – any FAIL flags a defect for the office.', ['Licence disc & papers – expiry date', 'Tyres (condition & pressure) incl. spare', 'Lights, indicators & hazard OK', 'Brakes & handbrake OK', 'Oil / coolant / washer fluid OK', 'Battery secure, no corrosion', 'Windscreen, mirrors & wipers OK', 'Horn working', 'Seatbelts intact', 'Load / canopy closed & strapped', 'Fire extinguisher present', 'No new dents, scratches or leaks', 'Cab clean, tools & jack on board', 'Odometer reading noted'])
   // first driver-check item is a date field (licence disc expiry), not PASS/FAIL
   driver.items = JSON.stringify(
-    (JSON.parse(driver.items) as { id: string; text: string }[]).map((x, n) => (n === 0 ? { ...x, type: 'date' } : x)),
+    (JSON.parse(driver.items as string) as { id: string; text: string }[]).map((x, n) => (n === 0 ? { ...x, type: 'date' } : x)),
   )
   return [fleet, driver]
 }
@@ -112,8 +112,13 @@ export async function loadSampleData(): Promise<void> {
     tpl('Outgoing (dispatch) inspection', 'OUTGOING', 0, 'Completed when a unit is signed out to a client.', ['Walls free of dents / rust', 'Roof sound – no ponding or leaks', 'Paint intact', 'Chassis / underside rust check', 'Door locks work', 'Hinges and door seals OK', 'Windows intact and sealed', 'Floor clean and undamaged', 'Walls / ceiling clean', 'No water or moisture damage', 'Lights working', 'Sockets working', 'DB / earth leakage test OK', 'Aircon cools / heats', 'Aircon filter clean', 'No unusual noise or drips', 'Fire extinguisher present (if fitted)', 'CoC available (if required)', 'Unit clean and ready', 'Keys count noted', 'Meter / hours reading noted', 'Client briefed on operation', 'Photos taken']),
     tpl('Return (receiving) inspection', 'RETURN', 0, 'Completed when a unit is received back from a client.', ['Unit received at yard gate', 'Keys returned – count matches', 'Walls / roof checked for new damage', 'Doors and locks still working', 'Windows intact', 'Interior clean / contents removed', 'Electrical still working', 'Aircon still working', 'Water / moisture damage check', 'Damage noted and photographed', 'Deposit assessment done']),
     tpl('Fleet daily / weekly inspection', 'FLEET', 0, 'Driver or supervisor walk-around.', ['Tyres & pressure OK', 'Lights & indicators OK', 'Brakes OK', 'Fluids (oil / coolant / brake) OK', 'Battery secure', 'Body / canopy damage check', 'Load bed clean & secure', 'Spare wheel & jack present', 'Licence disc valid', 'Fire extinguisher present', 'Odometer reading noted']),
-    tpl('Driver daily walk-around check', 'DRIVER_CHECK', 0, 'Quick pre-trip check done by the driver – any FAIL flags a defect for the office.', ['Licence disc & papers valid', 'Tyres (condition & pressure) incl. spare', 'Lights, indicators & hazard OK', 'Brakes & handbrake OK', 'Oil / coolant / washer fluid OK', 'Battery secure, no corrosion', 'Windscreen, mirrors & wipers OK', 'Horn working', 'Seatbelts intact', 'Load / canopy closed & strapped', 'Fire extinguisher present', 'No new dents, scratches or leaks', 'Cab clean, tools & jack on board', 'Odometer reading noted']),
+    tpl('Driver daily walk-around check', 'DRIVER_CHECK', 0, 'Quick pre-trip check done by the driver – any FAIL flags a defect for the office.', ['Licence disc & papers – expiry date', 'Tyres (condition & pressure) incl. spare', 'Lights, indicators & hazard OK', 'Brakes & handbrake OK', 'Oil / coolant / washer fluid OK', 'Battery secure, no corrosion', 'Windscreen, mirrors & wipers OK', 'Horn working', 'Seatbelts intact', 'Load / canopy closed & strapped', 'Fire extinguisher present', 'No new dents, scratches or leaks', 'Cab clean, tools & jack on board', 'Odometer reading noted']),
   ]
+  // first driver-check item is the licence disc expiry date (a date field, not PASS/FAIL)
+  const driverTpl = templates.find((t) => t.category === 'DRIVER_CHECK')!
+  driverTpl.items = JSON.stringify(
+    (JSON.parse(driverTpl.items as string) as { id: string; text: string }[]).map((x, n) => (n === 0 ? { ...x, type: 'date' } : x)),
+  )
   for (const t of templates) await upsert('inspectionTemplates', t)
   const outTpl = templates.find((t) => t.category === 'OUTGOING')!
 
